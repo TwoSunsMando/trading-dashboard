@@ -1,0 +1,67 @@
+// ── Color System ──
+export const C = {
+  bg: "#0a0a0f",
+  bgCard: "#12121a",
+  bgEl: "#1a1a25",
+  bgIn: "#0e0e16",
+  border: "#1e1e2e",
+  borderB: "#2a2a3e",
+  green: "#00e676",
+  greenD: "rgba(0,230,118,0.1)",
+  red: "#ff1744",
+  redD: "rgba(255,23,68,0.1)",
+  amber: "#ffab00",
+  amberD: "rgba(255,171,0,0.1)",
+  cyan: "#00e5ff",
+  cyanD: "rgba(0,229,255,0.1)",
+  purple: "#b388ff",
+  purpleD: "rgba(179,136,255,0.1)",
+  text: "#e8e8f0",
+  textD: "#8888a0",
+  textM: "#555570",
+};
+
+// ── Trading System Rules ──
+export const RULES = {
+  name: "Steiner Swing System v1.0",
+  philosophy: "Singles, not home runs. Protect capital. Let winners run. Cut losers fast.",
+  risk: [
+    { id: "R1", rule: "Never risk more than 1% of total capital per trade", detail: "With $10K, max risk = $100 per trade. If stop loss is $2 below entry, max position = 50 shares." },
+    { id: "R2", rule: "Maximum 3 open positions at once", detail: "Concentration kills beginners. 3 positions means you can actually WATCH them." },
+    { id: "R3", rule: "Never invest more than 20% of capital in one position", detail: "With $10K, max $2,000 per position. No all-in bets, ever." },
+    { id: "R4", rule: "Stop trading after 3 consecutive losses", detail: "Step back. Review your journal. Are you following the system?" },
+    { id: "R5", rule: "Weekly max loss: 3% of capital", detail: "Hit 3% loss for the week? Done. Close the apps. Come back Monday." },
+    { id: "R6", rule: "No revenge trading — ever", detail: "Lost money? Do NOT immediately enter another trade to 'make it back.'" },
+  ],
+  entry: [
+    { id: "E1", rule: "Only trade stocks above the 50-day moving average", detail: "This keeps you on the right side of the trend." },
+    { id: "E2", rule: "Volume must be above average on entry day/week", detail: "Volume confirms price moves. Breakout on low volume = fake-out." },
+    { id: "E3", rule: "Minimum 2:1 reward-to-risk ratio required", detail: "Risking $100? Target must be at least $200 profit." },
+    { id: "E4", rule: "Entry triggers: breakout, bounce off support, or pullback to MA", detail: "If it doesn't fit one of these, it's not a trade." },
+    { id: "E5", rule: "Check sector/market trend before entry", detail: "Is SPY/QQQ trending up? Is the sector strong? Both against you? Skip." },
+    { id: "E6", rule: "Write thesis BEFORE entering", detail: "Can't explain in one sentence WHY? You don't have a trade." },
+  ],
+  exit: [
+    { id: "X1", rule: "Set stop loss IMMEDIATELY at entry", detail: "Place the actual stop order so emotion can't override logic." },
+    { id: "X2", rule: "Trail stop to breakeven after +1R gain", detail: "Once trade moves 1x risk in your favor, move stop to breakeven." },
+    { id: "X3", rule: "Take 50% profit at 2R, let rest ride", detail: "Lock in gains. Let the remainder run with trailing stop." },
+    { id: "X4", rule: "Hard exit if stock closes below 50-day MA", detail: "The trend changed. Your thesis is dead. Get out." },
+    { id: "X5", rule: "Max hold time: 6 weeks for swing trades", detail: "Hasn't worked in 6 weeks? Free up the capital." },
+    { id: "X6", rule: "Never turn a swing trade into an 'investment'", detail: "Your system said swing trade. Respect the system." },
+  ],
+  routine: [
+    { day: "Saturday", task: "Weekly review — log all trades, calculate P&L, update watchlist." },
+    { day: "Sunday", task: "Scan for setups — check charts on watchlist, set alerts for the week." },
+    { day: "Mon-Fri AM", task: "Pre-market 7-9 AM — check news, gaps, volume. Execute planned entries ONLY." },
+    { day: "Mon-Fri PM", task: "After close 5-6 PM — review positions, update stops, journal. 15 min max." },
+  ],
+  etfs: [
+    { ticker: "SPY", name: "S&P 500", use: "Core trend-following. Buy pullbacks to 21 EMA in uptrends." },
+    { ticker: "QQQ", name: "Nasdaq 100", use: "Tech momentum. Higher beta = tighter stops." },
+    { ticker: "IWM", name: "Russell 2000", use: "Small cap rotation. Buy range breakouts." },
+    { ticker: "XLF", name: "Financials", use: "Sector rotation. Strong when rates rise." },
+    { ticker: "XLE", name: "Energy", use: "Commodity cycle plays. Follow oil." },
+    { ticker: "GLD", name: "Gold", use: "Hedge / fear trade. Buy when market weakens." },
+    { ticker: "TLT", name: "20+ Yr Treasuries", use: "Bond play. Flight to safety." },
+  ],
+};
