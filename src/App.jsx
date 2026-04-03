@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 
 // ═══════════════════════════════════════════════════════════════
 // STEINER TRADING TERMINAL v2.0
@@ -366,6 +367,46 @@ function Dash({ settings, curCap, totalPnL, winRate, open, closed, maxRisk$, wkP
           <SRow label="System compliance" ok={consLoss < 3 && open.length <= settings.maxPositions} text={consLoss < 3 && open.length <= settings.maxPositions ? "ALL CLEAR" : "CHECK RULES"} />
         </div>
       </div>
+      {closed.length > 1 && (() => {
+        const eqData = (() => { let r = settings.capital; return [{ name: "Start", equity: r }, ...closed.map(t => { r += (t.pnl||0); return { name: t.ticker, equity: parseFloat(r.toFixed(2)), date: t.closeDate }; })]; })();
+        const pnlData = closed.map(t => ({ name: t.ticker, pnl: parseFloat((t.pnl||0).toFixed(2)), date: t.closeDate }));
+        const chartTooltipStyle = { backgroundColor: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, fontFamily: "'IBM Plex Mono', monospace" };
+        return (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
+            <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, flex: 1, minWidth: 300 }}>
+              <div style={{ fontSize: 11, color: C.textM, letterSpacing: 1, textTransform: "uppercase", marginBottom: 14 }}>◈ Equity Curve</div>
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={eqData}>
+                  <defs><linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.green} stopOpacity={0.3}/><stop offset="95%" stopColor={C.green} stopOpacity={0}/></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                  <XAxis dataKey="name" tick={{ fill: C.textM, fontSize: 10 }} stroke={C.border} />
+                  <YAxis tick={{ fill: C.textM, fontSize: 10 }} stroke={C.border} tickFormatter={v => `$${v.toLocaleString()}`} domain={['dataMin - 50', 'dataMax + 50']} />
+                  <Tooltip contentStyle={chartTooltipStyle} labelStyle={{ color: C.text }} formatter={(v) => [fUSD(v), "Equity"]} />
+                  <ReferenceLine y={settings.capital} stroke={C.textM} strokeDasharray="3 3" label={{ value: "Start", fill: C.textM, fontSize: 10 }} />
+                  <Area type="monotone" dataKey="equity" stroke={C.green} fill="url(#eqGrad)" strokeWidth={2} dot={{ fill: C.green, r: 3 }} activeDot={{ r: 5 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, flex: 1, minWidth: 300 }}>
+              <div style={{ fontSize: 11, color: C.textM, letterSpacing: 1, textTransform: "uppercase", marginBottom: 14 }}>◉ P&L Per Trade</div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={pnlData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                  <XAxis dataKey="name" tick={{ fill: C.textM, fontSize: 10 }} stroke={C.border} />
+                  <YAxis tick={{ fill: C.textM, fontSize: 10 }} stroke={C.border} tickFormatter={v => `$${v}`} />
+                  <Tooltip contentStyle={chartTooltipStyle} labelStyle={{ color: C.text }} formatter={(v) => [fUSD(v), "P&L"]} />
+                  <ReferenceLine y={0} stroke={C.textM} />
+                  <Bar dataKey="pnl" radius={[4, 4, 0, 0]} fill={C.green} shape={(props) => {
+                    const { x, y, width, height, payload } = props;
+                    const fill = (payload.pnl || 0) >= 0 ? C.green : C.red;
+                    return <rect x={x} y={y} width={width} height={height} fill={fill} rx={4} />;
+                  }} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        );
+      })()}
       {open.length > 0 && (
         <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18 }}>
           <div style={{ fontSize: 11, color: C.textM, letterSpacing: 1, textTransform: "uppercase", marginBottom: 14 }}>◎ Open Positions</div>
@@ -668,8 +709,7 @@ function Risk({ trades, settings, curCap, closed, wkPnL, consLoss }) {
   const expPct = (totExp / curCap) * 100;
   const wkLim = curCap * 0.03;
   const mdd = (() => { let pk = settings.capital, mx = 0, r = settings.capital; closed.forEach(t => { r += (t.pnl||0); if (r > pk) pk = r; const d = ((pk-r)/pk)*100; if (d > mx) mx = d; }); return mx; })();
-  const eq = (() => { let r = settings.capital; return [{ l: "Start", v: r }, ...closed.map(t => { r += (t.pnl||0); return { l: t.ticker, v: r, d: t.closeDate }; })]; })();
-  const maxE = Math.max(...eq.map(p => p.v)), minE = Math.min(...eq.map(p => p.v)), rng = maxE - minE || 1;
+  const eq = (() => { let r = settings.capital; return [{ name: "Start", equity: r }, ...closed.map(t => { r += (t.pnl||0); return { name: t.ticker, equity: parseFloat(r.toFixed(2)), date: t.closeDate }; })]; })();
 
   const Gauge = ({ label, value, max, unit, color, pre = "" }) => {
     const pct = Math.min((value / max) * 100, 100);
@@ -696,19 +736,17 @@ function Risk({ trades, settings, curCap, closed, wkPnL, consLoss }) {
       {eq.length > 1 && (
         <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: C.textM, letterSpacing: 1, textTransform: "uppercase", marginBottom: 14 }}>◈ Equity Curve</div>
-          <div style={{ height: 180, display: "flex", alignItems: "flex-end", gap: 2, padding: "0 4px" }}>
-            {eq.map((p, i) => {
-              const h = ((p.v - minE) / rng) * 150 + 10;
-              const up = i === 0 || p.v >= eq[i-1].v;
-              return (
-                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  <div style={{ fontSize: 9, color: C.textM }}>{fUSD(p.v).replace("$","")}</div>
-                  <div style={{ width: "100%", maxWidth: 40, height: h, background: up ? C.greenD : C.redD, border: `1px solid ${up ? C.green : C.red}30`, borderRadius: "4px 4px 0 0", transition: "height 0.3s" }} />
-                  <div style={{ fontSize: 8, color: C.textM }}>{p.l}</div>
-                </div>
-              );
-            })}
-          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={eq}>
+              <defs><linearGradient id="riskEqGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.cyan} stopOpacity={0.3}/><stop offset="95%" stopColor={C.cyan} stopOpacity={0}/></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+              <XAxis dataKey="name" tick={{ fill: C.textM, fontSize: 10 }} stroke={C.border} />
+              <YAxis tick={{ fill: C.textM, fontSize: 10 }} stroke={C.border} tickFormatter={v => `$${v.toLocaleString()}`} domain={['dataMin - 50', 'dataMax + 50']} />
+              <Tooltip contentStyle={{ backgroundColor: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, fontFamily: "'IBM Plex Mono', monospace" }} labelStyle={{ color: C.text }} formatter={(v) => [fUSD(v), "Equity"]} />
+              <ReferenceLine y={settings.capital} stroke={C.textM} strokeDasharray="3 3" label={{ value: "Start", fill: C.textM, fontSize: 10 }} />
+              <Area type="monotone" dataKey="equity" stroke={C.cyan} fill="url(#riskEqGrad)" strokeWidth={2} dot={{ fill: C.cyan, r: 3 }} activeDot={{ r: 5 }} />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       )}
       {open.length > 0 && (
