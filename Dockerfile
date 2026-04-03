@@ -3,6 +3,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
 RUN npm run build
 
 FROM nginx:alpine

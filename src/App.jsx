@@ -1,18 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "./supabase";
 
 // ═══════════════════════════════════════════════════════════════
-// STEINER TRADING TERMINAL v1.0
-// Password-protected personal trading dashboard
+// STEINER TRADING TERMINAL v2.0
+// Supabase-backed personal trading dashboard
 // System: Swing/Position | Capital: <$10K | Style: Singles > HRs
 // Deploy: trading.astridagent.ai via Coolify
 // ═══════════════════════════════════════════════════════════════
-
-const PASS = "steiner2026";
-const KEYS = {
-  trades: "ds-trades-v1",
-  watchlist: "ds-watchlist-v1",
-  settings: "ds-settings-v1",
-};
 
 // ── Color System ──
 const C = {
@@ -88,50 +82,158 @@ const fUSD = (n) => (n == null || isNaN(n)) ? "—" : `$${Number(n).toLocaleStri
 const fPct = (n) => (n == null || isNaN(n)) ? "—" : `${n >= 0 ? "+" : ""}${Number(n).toFixed(2)}%`;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const td = () => new Date().toISOString().split("T")[0];
-const load = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
-const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+// ── Supabase DB helpers ──
+const DEFAULT_SETTINGS = { capital: 10000, maxRiskPct: 1, maxPositions: 3, maxPosPct: 20 };
+
+// Convert DB snake_case row to app camelCase
+const rowToTrade = (r) => ({
+  id: r.id, ticker: r.ticker, entry: Number(r.entry), stop: Number(r.stop), target: r.target ? Number(r.target) : null,
+  shares: r.shares, thesis: r.thesis, date: r.date, type: r.type, status: r.status,
+  riskPerShare: Number(r.risk_per_share), totalRisk: Number(r.total_risk), positionSize: Number(r.position_size),
+  rr: Number(r.rr), closeDate: r.close_date, closePrice: r.close_price ? Number(r.close_price) : null, pnl: r.pnl ? Number(r.pnl) : null,
+});
+const tradeToRow = (t, userId) => ({
+  id: t.id, user_id: userId, ticker: t.ticker, entry: t.entry, stop: t.stop, target: t.target,
+  shares: t.shares, thesis: t.thesis, date: t.date, type: t.type, status: t.status,
+  risk_per_share: t.riskPerShare, total_risk: t.totalRisk, position_size: t.positionSize,
+  rr: t.rr, close_date: t.closeDate, close_price: t.closePrice, pnl: t.pnl,
+});
+const rowToWL = (r) => ({
+  id: r.id, ticker: r.ticker, notes: r.notes, setup: r.setup, alert: r.alert ? Number(r.alert) : null, date: r.date, status: r.status,
+});
+const wlToRow = (w, userId) => ({
+  id: w.id, user_id: userId, ticker: w.ticker, notes: w.notes, setup: w.setup, alert: w.alert, date: w.date, status: w.status,
+});
+const rowToSettings = (r) => r ? { capital: Number(r.capital), maxRiskPct: Number(r.max_risk_pct), maxPositions: r.max_positions, maxPosPct: Number(r.max_pos_pct) } : DEFAULT_SETTINGS;
+const settingsToRow = (s, userId) => ({ user_id: userId, capital: s.capital, max_risk_pct: s.maxRiskPct, max_positions: s.maxPositions, max_pos_pct: s.maxPosPct });
 
 // ══════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════
 export default function App() {
-  const [authed, setAuthed] = useState(false);
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [authMode, setAuthMode] = useState("login"); // "login" | "signup"
+  const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
-  const [pwErr, setPwErr] = useState(false);
+  const [authErr, setAuthErr] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
   const [tab, setTab] = useState("dashboard");
   const [trades, setTrades] = useState([]);
   const [watchlist, setWL] = useState([]);
-  const [settings, setSettings] = useState({ capital: 10000, maxRiskPct: 1, maxPositions: 3, maxPosPct: 20 });
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
+  // Listen for auth state changes
   useEffect(() => {
-    if (!authed) return;
-    setTrades(load(KEYS.trades, []));
-    setWL(load(KEYS.watchlist, []));
-    setSettings(load(KEYS.settings, { capital: 10000, maxRiskPct: 1, maxPositions: 3, maxPosPct: 20 }));
-  }, [authed]);
+    supabase.auth.getSession().then(({ data: { session: s } }) => { setSession(s); setLoading(false); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => subscription.unsubscribe();
+  }, []);
 
-  useEffect(() => { if (authed) save(KEYS.trades, trades); }, [trades, authed]);
-  useEffect(() => { if (authed) save(KEYS.watchlist, watchlist); }, [watchlist, authed]);
-  useEffect(() => { if (authed) save(KEYS.settings, settings); }, [settings, authed]);
+  // Load data from Supabase when authenticated
+  useEffect(() => {
+    if (!session) return;
+    const loadData = async () => {
+      const [{ data: tData }, { data: wData }, { data: sData }] = await Promise.all([
+        supabase.from("trades").select("*").order("created_at", { ascending: false }),
+        supabase.from("watchlist").select("*").order("created_at", { ascending: false }),
+        supabase.from("settings").select("*").eq("user_id", session.user.id).single(),
+      ]);
+      if (tData) setTrades(tData.map(rowToTrade));
+      if (wData) setWL(wData.map(rowToWL));
+      setSettings(rowToSettings(sData));
+    };
+    loadData();
+  }, [session]);
 
-  const login = () => {
-    if (pw === PASS) { setAuthed(true); setPwErr(false); }
-    else { setPwErr(true); setTimeout(() => setPwErr(false), 2000); }
+  // Save settings to Supabase when they change
+  useEffect(() => {
+    if (!session) return;
+    const timeout = setTimeout(() => {
+      supabase.from("settings").upsert(settingsToRow(settings, session.user.id));
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [settings, session]);
+
+  const login = async () => {
+    setAuthLoading(true); setAuthErr("");
+    if (authMode === "signup") {
+      const { error } = await supabase.auth.signUp({ email, password: pw });
+      if (error) setAuthErr(error.message);
+      else setAuthErr("Check your email for a confirmation link!");
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+      if (error) setAuthErr(error.message);
+    }
+    setAuthLoading(false);
   };
 
-  if (!authed) return (
+  const logout = async () => { await supabase.auth.signOut(); setSession(null); setTrades([]); setWL([]); setSettings(DEFAULT_SETTINGS); };
+
+  // ── CRUD wrappers that sync with Supabase ──
+  const addTrade = async (trade) => {
+    setTrades(prev => [trade, ...prev]);
+    await supabase.from("trades").insert(tradeToRow(trade, session.user.id));
+  };
+  const updateTrade = async (id, updates) => {
+    setTrades(prev => prev.map(t => t.id !== id ? t : { ...t, ...updates }));
+    const dbUpdates = {};
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.closeDate !== undefined) dbUpdates.close_date = updates.closeDate;
+    if (updates.closePrice !== undefined) dbUpdates.close_price = updates.closePrice;
+    if (updates.pnl !== undefined) dbUpdates.pnl = updates.pnl;
+    await supabase.from("trades").update(dbUpdates).eq("id", id);
+  };
+  const deleteTrade = async (id) => {
+    setTrades(prev => prev.filter(t => t.id !== id));
+    await supabase.from("trades").delete().eq("id", id);
+  };
+  const addWLItem = async (item) => {
+    setWL(prev => [item, ...prev]);
+    await supabase.from("watchlist").insert(wlToRow(item, session.user.id));
+  };
+  const updateWLItem = async (id, updates) => {
+    setWL(prev => prev.map(w => w.id !== id ? w : { ...w, ...updates }));
+    await supabase.from("watchlist").update(updates).eq("id", id);
+  };
+  const deleteWLItem = async (id) => {
+    setWL(prev => prev.filter(w => w.id !== id));
+    await supabase.from("watchlist").delete().eq("id", id);
+  };
+
+  if (loading) return (
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'IBM Plex Mono', monospace" }}>
       <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      <div style={{ textAlign: "center" }}>
+      <div style={{ color: C.green, fontSize: 14 }}>Loading...</div>
+    </div>
+  );
+
+  if (!session) return (
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'IBM Plex Mono', monospace" }}>
+      <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      <div style={{ textAlign: "center", maxWidth: 360, width: "100%" }}>
         <div style={{ fontSize: 11, letterSpacing: 4, color: C.green, marginBottom: 16, textTransform: "uppercase" }}>◆ Steiner Trading Terminal ◆</div>
         <div style={{ fontSize: 28, fontWeight: 800, color: C.text, marginBottom: 8, fontFamily: "'Instrument Sans', sans-serif" }}>Command Center</div>
-        <div style={{ fontSize: 13, color: C.textM, marginBottom: 32 }}>Authentication required</div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-          <input type="password" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === "Enter" && login()}
-            placeholder="Enter passphrase..." style={{ background: C.bgIn, border: `1px solid ${pwErr ? C.red : C.border}`, borderRadius: 8, padding: "10px 16px", color: C.text, fontSize: 14, outline: "none", width: 220, fontFamily: "inherit" }} />
-          <button onClick={login} style={{ background: C.green, color: "#000", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>ACCESS</button>
+        <div style={{ fontSize: 13, color: C.textM, marginBottom: 32 }}>{authMode === "login" ? "Sign in to continue" : "Create your account"}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 20px" }}>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address"
+            style={{ background: C.bgIn, border: `1px solid ${authErr && authErr !== "Check your email for a confirmation link!" ? C.red : C.border}`, borderRadius: 8, padding: "10px 16px", color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+          <input type="password" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === "Enter" && login()} placeholder="Password (min 6 chars)"
+            style={{ background: C.bgIn, border: `1px solid ${authErr && authErr !== "Check your email for a confirmation link!" ? C.red : C.border}`, borderRadius: 8, padding: "10px 16px", color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+          <button onClick={login} disabled={authLoading}
+            style={{ background: C.green, color: "#000", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: authLoading ? "wait" : "pointer", opacity: authLoading ? 0.7 : 1 }}>
+            {authLoading ? "..." : authMode === "login" ? "SIGN IN" : "SIGN UP"}
+          </button>
         </div>
-        {pwErr && <div style={{ color: C.red, fontSize: 12, marginTop: 12 }}>Access denied</div>}
+        {authErr && <div style={{ color: authErr === "Check your email for a confirmation link!" ? C.green : C.red, fontSize: 12, marginTop: 12 }}>{authErr}</div>}
+        <div style={{ marginTop: 20, fontSize: 12, color: C.textD }}>
+          {authMode === "login" ? "No account? " : "Already have one? "}
+          <span onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthErr(""); }}
+            style={{ color: C.green, cursor: "pointer", textDecoration: "underline" }}>
+            {authMode === "login" ? "Sign up" : "Sign in"}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -167,6 +269,8 @@ export default function App() {
           {consLoss >= 3 && <span style={{ background: C.redD, color: C.red, padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, animation: "pulse 2s infinite" }}>⚠ 3+ LOSSES — STOP TRADING</span>}
           {wkPnL < 0 && Math.abs(wkPnL) >= curCap * 0.03 && <span style={{ background: C.redD, color: C.red, padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700 }}>⚠ WEEKLY MAX LOSS</span>}
           <span style={{ color: C.textM, fontSize: 11 }}>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+          <span style={{ color: C.textD, fontSize: 10 }}>{session.user.email}</span>
+          <button onClick={logout} style={{ background: "transparent", color: C.textM, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>LOGOUT</button>
         </div>
       </div>
 
@@ -181,10 +285,10 @@ export default function App() {
 
       <div style={{ padding: 20, maxWidth: 1100, margin: "0 auto" }}>
         {tab === "dashboard" && <Dash {...{ trades, settings, curCap, totalPnL, winRate, open, closed, maxRisk$, wkPnL, consLoss }} />}
-        {tab === "trades" && <Trades {...{ trades, setTrades, settings, curCap }} />}
+        {tab === "trades" && <Trades {...{ trades, addTrade, updateTrade, deleteTrade, settings, curCap }} />}
         {tab === "calc" && <Calc {...{ settings, setSettings, curCap }} />}
         {tab === "rules" && <Rules />}
-        {tab === "watchlist" && <WL {...{ watchlist, setWL }} />}
+        {tab === "watchlist" && <WL {...{ watchlist, addWLItem, updateWLItem, deleteWLItem }} />}
         {tab === "risk" && <Risk {...{ trades, settings, curCap, closed, wkPnL, consLoss }} />}
       </div>
       <style>{`
@@ -280,7 +384,7 @@ function Dash({ settings, curCap, totalPnL, winRate, open, closed, maxRisk$, wkP
 // ══════════════════════════════════════════
 // TRADES TAB
 // ══════════════════════════════════════════
-function Trades({ trades, setTrades, settings, curCap }) {
+function Trades({ trades, addTrade, updateTrade, deleteTrade, settings, curCap }) {
   const [show, setShow] = useState(false);
   const [f, setF] = useState({ ticker: "", entry: "", shares: "", stop: "", target: "", thesis: "", date: td(), type: "swing" });
   const [cfId, setCfId] = useState(null);
@@ -294,14 +398,15 @@ function Trades({ trades, setTrades, settings, curCap }) {
     const e = parseFloat(f.entry), s = parseFloat(f.stop), tg = parseFloat(f.target), sh = parseInt(f.shares);
     if (!f.ticker || isNaN(e) || isNaN(s) || isNaN(sh)) return;
     const rps = Math.abs(e - s), tr = rps * sh, ps = e * sh, rr = tg ? (tg - e) / rps : 0;
-    setTrades([{ id: uid(), ticker: f.ticker.toUpperCase(), entry: e, stop: s, target: tg, shares: sh, thesis: f.thesis, date: f.date, type: f.type, status: "open", riskPerShare: rps, totalRisk: tr, positionSize: ps, rr, closeDate: null, closePrice: null, pnl: null }, ...trades]);
+    addTrade({ id: uid(), ticker: f.ticker.toUpperCase(), entry: e, stop: s, target: tg, shares: sh, thesis: f.thesis, date: f.date, type: f.type, status: "open", riskPerShare: rps, totalRisk: tr, positionSize: ps, rr, closeDate: null, closePrice: null, pnl: null });
     setF({ ticker: "", entry: "", shares: "", stop: "", target: "", thesis: "", date: td(), type: "swing" });
     setShow(false);
   };
 
   const close = (id) => {
     const c = parseFloat(cp); if (isNaN(c)) return;
-    setTrades(trades.map(t => t.id !== id ? t : { ...t, status: "closed", closeDate: td(), closePrice: c, pnl: (c - t.entry) * t.shares }));
+    const t = trades.find(t => t.id === id);
+    updateTrade(id, { status: "closed", closeDate: td(), closePrice: c, pnl: (c - t.entry) * t.shares });
     setCfId(null); setCp("");
   };
 
@@ -370,7 +475,7 @@ function Trades({ trades, setTrades, settings, curCap }) {
                   <button onClick={() => { setCfId(null); setCp(""); }} style={{ background: C.bgEl, color: C.textD, border: `1px solid ${C.border}`, borderRadius: 4, padding: "4px 8px", fontSize: 10, cursor: "pointer" }}>✗</button>
                 </div>
               ) : <button onClick={() => setCfId(t.id)} style={{ background: C.amberD, color: C.amber, border: "none", borderRadius: 4, padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>CLOSE TRADE</button>)}
-              <button onClick={() => setTrades(trades.filter(x => x.id !== t.id))} style={{ background: "transparent", color: C.textM, border: `1px solid ${C.border}`, borderRadius: 4, padding: "4px 8px", fontSize: 10, cursor: "pointer" }}>✗</button>
+              <button onClick={() => deleteTrade(t.id)} style={{ background: "transparent", color: C.textM, border: `1px solid ${C.border}`, borderRadius: 4, padding: "4px 8px", fontSize: 10, cursor: "pointer" }}>✗</button>
             </div>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 10, fontSize: 11, color: C.textD }}>
@@ -502,7 +607,7 @@ function Rules() {
 // ══════════════════════════════════════════
 // WATCHLIST
 // ══════════════════════════════════════════
-function WL({ watchlist, setWL }) {
+function WL({ watchlist, addWLItem, updateWLItem, deleteWLItem }) {
   const [f, setF] = useState({ ticker: "", notes: "", setup: "breakout", alert: "" });
   const iS = { background: C.bgIn, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 12px", color: C.text, fontSize: 13, fontFamily: "inherit", width: "100%" };
   const sCol = { watching: C.textD, ready: C.amber, triggered: C.green };
@@ -510,8 +615,13 @@ function WL({ watchlist, setWL }) {
 
   const add = () => {
     if (!f.ticker) return;
-    setWL([{ id: uid(), ticker: f.ticker.toUpperCase(), notes: f.notes, setup: f.setup, alert: f.alert ? parseFloat(f.alert) : null, date: td(), status: "watching" }, ...watchlist]);
+    addWLItem({ id: uid(), ticker: f.ticker.toUpperCase(), notes: f.notes, setup: f.setup, alert: f.alert ? parseFloat(f.alert) : null, date: td(), status: "watching" });
     setF({ ticker: "", notes: "", setup: "breakout", alert: "" });
+  };
+
+  const cycleStatus = (w) => {
+    const next = w.status === "watching" ? "ready" : w.status === "ready" ? "triggered" : "watching";
+    updateWLItem(w.id, { status: next });
   };
 
   return (
@@ -535,13 +645,13 @@ function WL({ watchlist, setWL }) {
         <div key={w.id} style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
             <span style={{ fontWeight: 700, fontSize: 15, color: C.text, fontFamily: "'Instrument Sans',sans-serif", minWidth: 50 }}>{w.ticker}</span>
-            <span onClick={() => setWL(watchlist.map(x => x.id === w.id ? { ...x, status: x.status === "watching" ? "ready" : x.status === "ready" ? "triggered" : "watching" } : x))}
+            <span onClick={() => cycleStatus(w)}
               style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: `${sCol[w.status]}20`, color: sCol[w.status], fontWeight: 600, cursor: "pointer", textTransform: "uppercase" }}>{sLbl[w.status]}</span>
             <span style={{ fontSize: 10, color: C.textM, textTransform: "uppercase" }}>{w.setup}</span>
             {w.alert && <span style={{ fontSize: 11, color: C.amber }}>@ {fUSD(w.alert)}</span>}
           </div>
           {w.notes && <div style={{ fontSize: 11, color: C.textD, flex: "1 1 100%" }}>{w.notes}</div>}
-          <button onClick={() => setWL(watchlist.filter(x => x.id !== w.id))} style={{ background: "transparent", color: C.textM, border: `1px solid ${C.border}`, borderRadius: 4, padding: "4px 8px", fontSize: 10, cursor: "pointer" }}>✗</button>
+          <button onClick={() => deleteWLItem(w.id)} style={{ background: "transparent", color: C.textM, border: `1px solid ${C.border}`, borderRadius: 4, padding: "4px 8px", fontSize: 10, cursor: "pointer" }}>✗</button>
         </div>
       ))}
     </div>
