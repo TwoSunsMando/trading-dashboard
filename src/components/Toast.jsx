@@ -1,16 +1,15 @@
-import { C } from "../constants";
+import { cn } from "@/lib/utils";
 
 export function Toast({ toasts, removeToast }) {
   return (
-    <div style={{ position: "fixed", top: 16, right: 16, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8 }}>
+    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2">
       {toasts.map(t => (
-        <div key={t.id} onClick={() => removeToast(t.id)} style={{
-          background: t.type === "error" ? C.redD : t.type === "success" ? C.greenD : C.amberD,
-          border: `1px solid ${t.type === "error" ? C.red : t.type === "success" ? C.green : C.amber}40`,
-          color: t.type === "error" ? C.red : t.type === "success" ? C.green : C.amber,
-          padding: "10px 16px", borderRadius: 8, fontSize: 12, fontFamily: "'IBM Plex Mono', monospace",
-          cursor: "pointer", maxWidth: 320, backdropFilter: "blur(12px)", animation: "toastIn 0.2s ease-out",
-        }}>
+        <div key={t.id} onClick={() => removeToast(t.id)} className={cn(
+          "px-4 py-2.5 rounded-lg text-xs cursor-pointer max-w-[320px] backdrop-blur-xl border animate-in slide-in-from-right-5",
+          t.type === "error" && "bg-loss-muted border-loss/40 text-loss",
+          t.type === "success" && "bg-profit-muted border-profit/40 text-profit",
+          t.type !== "error" && t.type !== "success" && "bg-warn-muted border-warn/40 text-warn",
+        )}>
           {t.type === "error" ? "✗ " : t.type === "success" ? "✓ " : "⚠ "}{t.message}
         </div>
       ))}
@@ -20,12 +19,12 @@ export function Toast({ toasts, removeToast }) {
 
 export function ConfirmDialog({ message, onConfirm, onCancel }) {
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-      <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, maxWidth: 360, width: "90%", textAlign: "center" }}>
-        <div style={{ fontSize: 13, color: C.text, marginBottom: 20, lineHeight: 1.5 }}>{message}</div>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-          <button onClick={onCancel} style={{ background: C.bgEl, color: C.textD, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 20px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>CANCEL</button>
-          <button onClick={onConfirm} style={{ background: C.red, color: "#fff", border: "none", borderRadius: 6, padding: "8px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>DELETE</button>
+    <div className="fixed inset-0 z-[9998] bg-black/60 flex items-center justify-center backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-xl p-6 max-w-[360px] w-[90%] text-center shadow-2xl">
+        <p className="text-sm text-foreground mb-5 leading-relaxed">{message}</p>
+        <div className="flex gap-2.5 justify-center">
+          <button onClick={onCancel} className="bg-accent text-muted-foreground border border-border rounded-md px-5 py-2 text-xs cursor-pointer hover:bg-accent/80 transition-colors">CANCEL</button>
+          <button onClick={onConfirm} className="bg-loss text-white border-none rounded-md px-5 py-2 text-xs font-bold cursor-pointer hover:bg-loss/80 transition-colors">DELETE</button>
         </div>
       </div>
     </div>

@@ -1,50 +1,65 @@
 import { useState } from "react";
-import { C, RULES } from "../constants";
+import { RULES } from "../constants";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export default function Rules() {
   const [exp, setExp] = useState(null);
+
   const Sec = ({ title, rules, color, icon }) => (
-    <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, marginBottom: 16 }}>
-      <div style={{ fontSize: 12, color, letterSpacing: 1, textTransform: "uppercase", marginBottom: 14, fontWeight: 700 }}>{icon} {title}</div>
-      {rules.map(r => (
-        <div key={r.id} onClick={() => setExp(exp === r.id ? null : r.id)} style={{ cursor: "pointer", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-            <span style={{ color, fontWeight: 700, fontSize: 11, minWidth: 24 }}>{r.id}</span>
-            <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>{r.rule}</span>
-            <span style={{ color: C.textM, marginLeft: "auto", fontSize: 10 }}>{exp === r.id ? "▲" : "▼"}</span>
+    <Card className="mb-4">
+      <CardContent className="p-5">
+        <div className="text-xs tracking-wider uppercase mb-3.5 font-bold" style={{ color }}>{icon} {title}</div>
+        {rules.map(r => (
+          <div key={r.id} onClick={() => setExp(exp === r.id ? null : r.id)} className="cursor-pointer py-2.5 border-b border-border last:border-0">
+            <div className="flex items-start gap-2.5">
+              <span className="font-bold text-xs min-w-[24px]" style={{ color }}>{r.id}</span>
+              <span className="text-foreground text-sm font-medium">{r.rule}</span>
+              <span className="text-muted-foreground ml-auto text-[10px]">{exp === r.id ? "▲" : "▼"}</span>
+            </div>
+            {exp === r.id && <div className="mt-2 ml-[34px] text-xs text-muted-foreground leading-relaxed bg-accent p-3 rounded-md">{r.detail}</div>}
           </div>
-          {exp === r.id && <div style={{ marginTop: 8, marginLeft: 34, fontSize: 12, color: C.textD, lineHeight: 1.6, background: C.bgEl, padding: 12, borderRadius: 6 }}>{r.detail}</div>}
-        </div>
-      ))}
-    </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 
   return (
     <div>
-      <div style={{ fontFamily: "'Instrument Sans', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4 }}>System Rules</div>
-      <div style={{ color: C.textD, fontSize: 12, marginBottom: 8 }}>{RULES.name}</div>
-      <div style={{ color: C.green, fontSize: 13, fontStyle: "italic", marginBottom: 24, borderLeft: `2px solid ${C.green}`, paddingLeft: 12 }}>"{RULES.philosophy}"</div>
-      <Sec title="Risk Management" rules={RULES.risk} color={C.red} icon="△" />
-      <Sec title="Entry Rules" rules={RULES.entry} color={C.green} icon="◈" />
-      <Sec title="Exit Rules" rules={RULES.exit} color={C.amber} icon="◉" />
-      <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: C.cyan, letterSpacing: 1, textTransform: "uppercase", marginBottom: 14, fontWeight: 700 }}>◎ Weekly Routine</div>
-        {RULES.routine.map((r, i) => (
-          <div key={i} style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ color: C.cyan, fontWeight: 700, fontSize: 11, minWidth: 80 }}>{r.day}</span>
-            <span style={{ color: C.textD, fontSize: 12 }}>{r.task}</span>
-          </div>
-        ))}
-      </div>
-      <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18 }}>
-        <div style={{ fontSize: 12, color: C.purple, letterSpacing: 1, textTransform: "uppercase", marginBottom: 14, fontWeight: 700 }}>◆ ETF Playbook</div>
-        {RULES.etfs.map((e, i) => (
-          <div key={i} style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ color: C.purple, fontWeight: 700, fontSize: 13, minWidth: 40, fontFamily: "'Instrument Sans',sans-serif" }}>{e.ticker}</span>
-            <div><span style={{ color: C.text, fontSize: 12, fontWeight: 500 }}>{e.name}</span><div style={{ color: C.textD, fontSize: 11, marginTop: 2 }}>{e.use}</div></div>
-          </div>
-        ))}
-      </div>
+      <h1 className="text-2xl font-bold mb-1">System Rules</h1>
+      <p className="text-muted-foreground text-xs mb-2">{RULES.name}</p>
+      <div className="text-profit text-sm italic mb-6 border-l-2 border-profit pl-3">"{RULES.philosophy}"</div>
+
+      <Sec title="Risk Management" rules={RULES.risk} color="#f87171" icon="△" />
+      <Sec title="Entry Rules" rules={RULES.entry} color="#34d399" icon="◈" />
+      <Sec title="Exit Rules" rules={RULES.exit} color="#fbbf24" icon="◉" />
+
+      <Card className="mb-4">
+        <CardContent className="p-5">
+          <div className="text-xs text-info tracking-wider uppercase mb-3.5 font-bold">◎ Weekly Routine</div>
+          {RULES.routine.map((r, i) => (
+            <div key={i} className="flex gap-3 py-2 border-b border-border last:border-0">
+              <span className="text-info font-bold text-xs min-w-[80px]">{r.day}</span>
+              <span className="text-muted-foreground text-xs">{r.task}</span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-5">
+          <div className="text-xs text-primary tracking-wider uppercase mb-3.5 font-bold">◆ ETF Playbook</div>
+          {RULES.etfs.map((e, i) => (
+            <div key={i} className="flex gap-3 py-2 border-b border-border last:border-0">
+              <span className="text-primary font-bold text-sm min-w-[40px]">{e.ticker}</span>
+              <div>
+                <span className="text-foreground text-xs font-medium">{e.name}</span>
+                <div className="text-muted-foreground text-xs mt-0.5">{e.use}</div>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
-import { C } from "./constants";
 import { DEFAULT_SETTINGS, rowToTrade, tradeToRow, rowToWL, wlToRow, rowToSettings, settingsToRow } from "./helpers";
 import { Toast, ConfirmDialog } from "./components/Toast";
 import Dashboard from "./components/Dashboard";
@@ -9,13 +8,9 @@ import Calc from "./components/Calc";
 import Rules from "./components/Rules";
 import Watchlist from "./components/Watchlist";
 import Risk from "./components/Risk";
-
-// ═══════════════════════════════════════════════════════════════
-// STEINER TRADING TERMINAL v2.0
-// Supabase-backed personal trading dashboard
-// System: Swing/Position | Capital: <$10K | Style: Singles > HRs
-// Deploy: trading.astridagent.ai via Coolify
-// ═════════════════════════════════════════════════════════��═════
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -39,14 +34,12 @@ export default function App() {
   };
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
-  // Listen for auth state changes
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => { setSession(s); setLoading(false); });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load data from Supabase when authenticated
   useEffect(() => {
     if (!session) return;
     const loadData = async () => {
@@ -65,7 +58,6 @@ export default function App() {
     loadData();
   }, [session]);
 
-  // Save settings to Supabase when they change
   useEffect(() => {
     if (!session) return;
     const timeout = setTimeout(async () => {
@@ -90,7 +82,6 @@ export default function App() {
 
   const logout = async () => { await supabase.auth.signOut(); setSession(null); setTrades([]); setWL([]); setSettings(DEFAULT_SETTINGS); };
 
-  // ── CRUD wrappers that sync with Supabase ──
   const addTrade = async (trade) => {
     setTrades(prev => [trade, ...prev]);
     const { error } = await supabase.from("trades").insert(tradeToRow(trade, session.user.id));
@@ -149,37 +140,34 @@ export default function App() {
   };
 
   if (loading) return (
-    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'IBM Plex Mono', monospace" }}>
-      <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      <div style={{ color: C.green, fontSize: 14 }}>Loading...</div>
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-profit text-sm animate-pulse">Loading...</div>
     </div>
   );
 
   if (!session) return (
-    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'IBM Plex Mono', monospace" }}>
-      <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      <div style={{ textAlign: "center", maxWidth: 360, width: "100%" }}>
-        <div style={{ fontSize: 11, letterSpacing: 4, color: C.green, marginBottom: 16, textTransform: "uppercase" }}>◆ Steiner Trading Terminal ◆</div>
-        <div style={{ fontSize: 28, fontWeight: 800, color: C.text, marginBottom: 8, fontFamily: "'Instrument Sans', sans-serif" }}>Command Center</div>
-        <div style={{ fontSize: 13, color: C.textM, marginBottom: 32 }}>{authMode === "login" ? "Sign in to continue" : "Create your account"}</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 20px" }}>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address"
-            style={{ background: C.bgIn, border: `1px solid ${authErr && authErr !== "Check your email for a confirmation link!" ? C.red : C.border}`, borderRadius: 8, padding: "10px 16px", color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
-          <input type="password" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === "Enter" && login()} placeholder="Password (min 6 chars)"
-            style={{ background: C.bgIn, border: `1px solid ${authErr && authErr !== "Check your email for a confirmation link!" ? C.red : C.border}`, borderRadius: 8, padding: "10px 16px", color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
-          <button onClick={login} disabled={authLoading}
-            style={{ background: C.green, color: "#000", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: authLoading ? "wait" : "pointer", opacity: authLoading ? 0.7 : 1 }}>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="text-center max-w-[360px] w-full">
+        <div className="text-xs tracking-[4px] text-primary mb-4 uppercase font-medium">Steiner Trading Terminal</div>
+        <h1 className="text-3xl font-extrabold text-foreground mb-2">Command Center</h1>
+        <p className="text-sm text-muted-foreground mb-8">{authMode === "login" ? "Sign in to continue" : "Create your account"}</p>
+        <div className="flex flex-col gap-3 px-5">
+          <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address"
+            className={cn("h-11", authErr && authErr !== "Check your email for a confirmation link!" && "border-loss")} />
+          <Input type="password" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === "Enter" && login()} placeholder="Password (min 6 chars)"
+            className={cn("h-11", authErr && authErr !== "Check your email for a confirmation link!" && "border-loss")} />
+          <Button onClick={login} disabled={authLoading} className="h-11 font-bold text-sm">
             {authLoading ? "..." : authMode === "login" ? "SIGN IN" : "SIGN UP"}
-          </button>
+          </Button>
         </div>
-        {authErr && <div style={{ color: authErr === "Check your email for a confirmation link!" ? C.green : C.red, fontSize: 12, marginTop: 12 }}>{authErr}</div>}
-        <div style={{ marginTop: 20, fontSize: 12, color: C.textD }}>
+        {authErr && <p className={cn("text-xs mt-3", authErr === "Check your email for a confirmation link!" ? "text-profit" : "text-loss")}>{authErr}</p>}
+        <p className="mt-5 text-xs text-muted-foreground">
           {authMode === "login" ? "No account? " : "Already have one? "}
           <span onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthErr(""); }}
-            style={{ color: C.green, cursor: "pointer", textDecoration: "underline" }}>
+            className="text-primary cursor-pointer underline underline-offset-2 hover:text-primary/80">
             {authMode === "login" ? "Sign up" : "Sign in"}
           </span>
-        </div>
+        </p>
       </div>
     </div>
   );
@@ -204,49 +192,48 @@ export default function App() {
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "'IBM Plex Mono', monospace", fontSize: 13 }}>
-      <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      <div style={{ borderBottom: `1px solid ${C.border}`, padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ color: C.green, fontSize: 10, letterSpacing: 3, textTransform: "uppercase" }}>◆ Steiner Trading Terminal</span>
-          <span style={{ color: C.textM, fontSize: 10 }}>v2.0</span>
+    <div className="min-h-screen bg-background text-foreground text-sm">
+      {/* Header */}
+      <header className="border-b border-border px-5 py-3 flex justify-between items-center flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <span className="text-primary text-xs tracking-[3px] uppercase font-semibold">Steiner Trading Terminal</span>
+          <span className="text-muted-foreground text-[10px]">v2.0</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {consLoss >= 3 && <span style={{ background: C.redD, color: C.red, padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, animation: "pulse 2s infinite" }}>⚠ 3+ LOSSES — STOP TRADING</span>}
-          {wkPnL < 0 && Math.abs(wkPnL) >= curCap * 0.03 && <span style={{ background: C.redD, color: C.red, padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700 }}>⚠ WEEKLY MAX LOSS</span>}
-          <span style={{ color: C.textM, fontSize: 11 }}>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
-          <span style={{ color: C.textD, fontSize: 10 }}>{session.user.email}</span>
-          <button onClick={logout} style={{ background: "transparent", color: C.textM, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>LOGOUT</button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {consLoss >= 3 && <span className="bg-loss-muted text-loss px-2.5 py-1 rounded-md text-[10px] font-bold animate-pulse">⚠ 3+ LOSSES — STOP TRADING</span>}
+          {wkPnL < 0 && Math.abs(wkPnL) >= curCap * 0.03 && <span className="bg-loss-muted text-loss px-2.5 py-1 rounded-md text-[10px] font-bold">⚠ WEEKLY MAX LOSS</span>}
+          <span className="text-muted-foreground text-xs">{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+          <span className="text-muted-foreground/60 text-[10px]">{session.user.email}</span>
+          <Button variant="outline" size="sm" onClick={logout} className="h-7 text-[10px] px-3">LOGOUT</Button>
         </div>
-      </div>
+      </header>
 
-      <div style={{ display: "flex", gap: 2, padding: "8px 16px", borderBottom: `1px solid ${C.border}`, overflowX: "auto", flexWrap: "wrap" }}>
+      {/* Navigation */}
+      <nav className="flex gap-1 px-4 py-2 border-b border-border overflow-x-auto flex-wrap">
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            background: tab === t.id ? C.green : "transparent", color: tab === t.id ? "#000" : C.textD,
-            border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", transition: "all 0.15s"
-          }}>{t.icon} {t.label}</button>
+          <button key={t.id} onClick={() => setTab(t.id)} className={cn(
+            "px-3.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all",
+            tab === t.id
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          )}>{t.icon} {t.label}</button>
         ))}
-      </div>
+      </nav>
 
-      <div style={{ padding: 20, maxWidth: 1100, margin: "0 auto" }}>
-        {tab === "dashboard" && <Dashboard {...{ trades, settings, curCap, totalPnL, winRate, open, closed, maxRisk$, wkPnL, consLoss }} />}
+      {/* Content */}
+      <main className="p-5 max-w-[1100px] mx-auto">
+        {tab === "dashboard" && <Dashboard {...{ trades, settings, curCap, totalPnL, winRate, open, closed, maxRisk$: maxRisk$, wkPnL, consLoss }} />}
         {tab === "trades" && <Trades {...{ trades, addTrade, updateTrade, deleteTrade, settings, curCap }} />}
         {tab === "calc" && <Calc {...{ settings, setSettings, curCap }} />}
         {tab === "rules" && <Rules />}
         {tab === "watchlist" && <Watchlist {...{ watchlist, addWLItem, updateWLItem, deleteWLItem }} />}
         {tab === "risk" && <Risk {...{ trades, settings, curCap, closed, wkPnL, consLoss }} />}
-      </div>
+      </main>
       <Toast toasts={toasts} removeToast={removeToast} />
       {confirm && <ConfirmDialog message={confirm.message} onConfirm={confirm.onConfirm} onCancel={() => setConfirm(null)} />}
       <style>{`
         @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.5 } }
         @keyframes toastIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
-        input:focus,textarea:focus,select:focus { border-color: ${C.green} !important; outline:none; }
-        ::-webkit-scrollbar { width:6px; height:6px; }
-        ::-webkit-scrollbar-track { background:${C.bg}; }
-        ::-webkit-scrollbar-thumb { background:${C.borderB}; border-radius:3px; }
-        * { box-sizing:border-box; }
       `}</style>
     </div>
   );

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { C } from "../constants";
 import { fmt, fUSD } from "../helpers";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 export default function Calc({ settings, setSettings, curCap }) {
   const [entry, setEntry] = useState("");
@@ -16,43 +19,63 @@ export default function Calc({ settings, setSettings, curCap }) {
   const posVal = finalSh * eN, totRisk = finalSh * rps;
   const rr = rps > 0 && tN ? (tN - eN) / rps : 0;
   const potProfit = finalSh * (tN - eN);
-  const iS = { background: C.bgIn, border: `1px solid ${C.border}`, borderRadius: 6, padding: "10px 14px", color: C.text, fontSize: 15, fontFamily: "inherit", width: "100%", fontWeight: 600 };
 
   return (
     <div>
-      <div style={{ fontFamily: "'Instrument Sans', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Position Size Calculator</div>
-      <div style={{ color: C.textD, fontSize: 12, marginBottom: 24 }}>The calculator enforces discipline.</div>
-      <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, marginBottom: 20 }}>
-        <div style={{ fontSize: 10, color: C.textM, letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>◆ Account Settings</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
-          <div><label style={{ fontSize: 10, color: C.textM, display: "block", marginBottom: 4 }}>STARTING CAPITAL</label><input style={iS} type="number" value={settings.capital} onChange={e => setSettings({...settings, capital: parseFloat(e.target.value)||0})} /></div>
-          <div><label style={{ fontSize: 10, color: C.textM, display: "block", marginBottom: 4 }}>MAX RISK %</label><input style={iS} type="number" step="0.25" value={settings.maxRiskPct} onChange={e => setSettings({...settings, maxRiskPct: parseFloat(e.target.value)||1})} /></div>
-          <div><label style={{ fontSize: 10, color: C.textM, display: "block", marginBottom: 4 }}>MAX POSITIONS</label><input style={iS} type="number" value={settings.maxPositions} onChange={e => setSettings({...settings, maxPositions: parseInt(e.target.value)||3})} /></div>
-          <div><label style={{ fontSize: 10, color: C.textM, display: "block", marginBottom: 4 }}>MAX POS %</label><input style={iS} type="number" step="5" value={settings.maxPosPct} onChange={e => setSettings({...settings, maxPosPct: parseFloat(e.target.value)||20})} /></div>
-        </div>
-        <div style={{ fontSize: 11, color: C.green, marginTop: 12 }}>Current capital: <strong>{fUSD(curCap)}</strong> → Max risk/trade: <strong>{fUSD(riskD)}</strong></div>
-      </div>
-      <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18 }}>
-        <div style={{ fontSize: 10, color: C.green, letterSpacing: 1, textTransform: "uppercase", marginBottom: 16 }}>⬡ Calculate</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
-          <div><label style={{ fontSize: 10, color: C.textM, display: "block", marginBottom: 4 }}>ENTRY PRICE</label><input style={iS} type="number" step="0.01" value={entry} onChange={e => setEntry(e.target.value)} placeholder="0.00" /></div>
-          <div><label style={{ fontSize: 10, color: C.textM, display: "block", marginBottom: 4 }}>STOP LOSS</label><input style={iS} type="number" step="0.01" value={stop} onChange={e => setStop(e.target.value)} placeholder="0.00" /></div>
-          <div><label style={{ fontSize: 10, color: C.textM, display: "block", marginBottom: 4 }}>TARGET</label><input style={iS} type="number" step="0.01" value={target} onChange={e => setTarget(e.target.value)} placeholder="0.00" /></div>
-        </div>
-        {eN > 0 && sN > 0 && (
-          <div style={{ background: C.bgEl, borderRadius: 10, padding: 20, border: `1px solid ${C.borderB}` }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16, textAlign: "center" }}>
-              <div><div style={{ fontSize: 10, color: C.textM, letterSpacing: 1, marginBottom: 4 }}>SHARES TO BUY</div><div style={{ fontSize: 32, fontWeight: 700, color: C.green, fontFamily: "'Instrument Sans',sans-serif" }}>{finalSh}</div></div>
-              <div><div style={{ fontSize: 10, color: C.textM, letterSpacing: 1, marginBottom: 4 }}>POSITION VALUE</div><div style={{ fontSize: 20, fontWeight: 700, color: C.text, fontFamily: "'Instrument Sans',sans-serif" }}>{fUSD(posVal)}</div></div>
-              <div><div style={{ fontSize: 10, color: C.textM, letterSpacing: 1, marginBottom: 4 }}>TOTAL RISK</div><div style={{ fontSize: 20, fontWeight: 700, color: C.red, fontFamily: "'Instrument Sans',sans-serif" }}>{fUSD(totRisk)}</div></div>
-              {tN > 0 && <div><div style={{ fontSize: 10, color: C.textM, letterSpacing: 1, marginBottom: 4 }}>R:R RATIO</div><div style={{ fontSize: 20, fontWeight: 700, color: rr >= 2 ? C.green : C.red, fontFamily: "'Instrument Sans',sans-serif" }}>{fmt(rr,1)}:1</div></div>}
-              {tN > 0 && <div><div style={{ fontSize: 10, color: C.textM, letterSpacing: 1, marginBottom: 4 }}>POTENTIAL PROFIT</div><div style={{ fontSize: 20, fontWeight: 700, color: C.green, fontFamily: "'Instrument Sans',sans-serif" }}>{fUSD(potProfit)}</div></div>}
-            </div>
-            {idealSh > maxSh && <div style={{ marginTop: 14, fontSize: 11, color: C.amber, background: C.amberD, padding: 10, borderRadius: 6 }}>⚠ Capped by {settings.maxPosPct}% rule ({idealSh} → {finalSh} shares)</div>}
-            {rr > 0 && rr < 2 && <div style={{ marginTop: 10, fontSize: 11, color: C.red, background: C.redD, padding: 10, borderRadius: 6 }}>⚠ R:R below 2:1. Rule E3: trade does NOT qualify.</div>}
+      <h1 className="text-2xl font-bold mb-1">Position Size Calculator</h1>
+      <p className="text-muted-foreground text-xs mb-6">The calculator enforces discipline.</p>
+
+      <Card className="mb-5">
+        <CardContent className="p-5">
+          <div className="text-[10px] text-muted-foreground tracking-wider uppercase mb-3">◆ Account Settings</div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+            <div><label className="text-[10px] text-muted-foreground block mb-1">STARTING CAPITAL</label><Input type="number" value={settings.capital} onChange={e => setSettings({...settings, capital: parseFloat(e.target.value)||0})} className="font-semibold" /></div>
+            <div><label className="text-[10px] text-muted-foreground block mb-1">MAX RISK %</label><Input type="number" step="0.25" value={settings.maxRiskPct} onChange={e => setSettings({...settings, maxRiskPct: parseFloat(e.target.value)||1})} className="font-semibold" /></div>
+            <div><label className="text-[10px] text-muted-foreground block mb-1">MAX POSITIONS</label><Input type="number" value={settings.maxPositions} onChange={e => setSettings({...settings, maxPositions: parseInt(e.target.value)||3})} className="font-semibold" /></div>
+            <div><label className="text-[10px] text-muted-foreground block mb-1">MAX POS %</label><Input type="number" step="5" value={settings.maxPosPct} onChange={e => setSettings({...settings, maxPosPct: parseFloat(e.target.value)||20})} className="font-semibold" /></div>
           </div>
-        )}
-      </div>
+          <div className="text-xs text-profit mt-3">Current capital: <strong>{fUSD(curCap)}</strong> → Max risk/trade: <strong>{fUSD(riskD)}</strong></div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-5">
+          <div className="text-xs text-primary tracking-wider uppercase mb-4 font-medium">⬡ Calculate</div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 mb-5">
+            <div><label className="text-[10px] text-muted-foreground block mb-1">ENTRY PRICE</label><Input type="number" step="0.01" value={entry} onChange={e => setEntry(e.target.value)} placeholder="0.00" className="font-semibold text-base" /></div>
+            <div><label className="text-[10px] text-muted-foreground block mb-1">STOP LOSS</label><Input type="number" step="0.01" value={stop} onChange={e => setStop(e.target.value)} placeholder="0.00" className="font-semibold text-base" /></div>
+            <div><label className="text-[10px] text-muted-foreground block mb-1">TARGET</label><Input type="number" step="0.01" value={target} onChange={e => setTarget(e.target.value)} placeholder="0.00" className="font-semibold text-base" /></div>
+          </div>
+          {eN > 0 && sN > 0 && (
+            <div className="bg-accent rounded-xl p-5 border border-border">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-4 text-center">
+                <div>
+                  <div className="text-[10px] text-muted-foreground tracking-wider mb-1">SHARES TO BUY</div>
+                  <div className="text-3xl font-bold text-profit">{finalSh}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground tracking-wider mb-1">POSITION VALUE</div>
+                  <div className="text-xl font-bold text-foreground">{fUSD(posVal)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground tracking-wider mb-1">TOTAL RISK</div>
+                  <div className="text-xl font-bold text-loss">{fUSD(totRisk)}</div>
+                </div>
+                {tN > 0 && <div>
+                  <div className="text-[10px] text-muted-foreground tracking-wider mb-1">R:R RATIO</div>
+                  <div className={cn("text-xl font-bold", rr >= 2 ? "text-profit" : "text-loss")}>{fmt(rr,1)}:1</div>
+                </div>}
+                {tN > 0 && <div>
+                  <div className="text-[10px] text-muted-foreground tracking-wider mb-1">POTENTIAL PROFIT</div>
+                  <div className="text-xl font-bold text-profit">{fUSD(potProfit)}</div>
+                </div>}
+              </div>
+              {idealSh > maxSh && <div className="mt-3.5 text-xs text-warn bg-warn-muted p-2.5 rounded-md">⚠ Capped by {settings.maxPosPct}% rule ({idealSh} → {finalSh} shares)</div>}
+              {rr > 0 && rr < 2 && <div className="mt-2.5 text-xs text-loss bg-loss-muted p-2.5 rounded-md">⚠ R:R below 2:1. Rule E3: trade does NOT qualify.</div>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

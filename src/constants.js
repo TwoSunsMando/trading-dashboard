@@ -1,24 +1,26 @@
-// ── Color System ──
+// ── Color System (Foxstocks-inspired dark finance theme) ──
 export const C = {
-  bg: "#0a0a0f",
-  bgCard: "#12121a",
-  bgEl: "#1a1a25",
-  bgIn: "#0e0e16",
-  border: "#1e1e2e",
-  borderB: "#2a2a3e",
-  green: "#00e676",
-  greenD: "rgba(0,230,118,0.1)",
-  red: "#ff1744",
-  redD: "rgba(255,23,68,0.1)",
-  amber: "#ffab00",
-  amberD: "rgba(255,171,0,0.1)",
-  cyan: "#00e5ff",
-  cyanD: "rgba(0,229,255,0.1)",
-  purple: "#b388ff",
-  purpleD: "rgba(179,136,255,0.1)",
-  text: "#e8e8f0",
-  textD: "#8888a0",
-  textM: "#555570",
+  // Semantic trading colors
+  green: "var(--profit)",
+  greenD: "var(--profit-muted)",
+  red: "var(--loss)",
+  redD: "var(--loss-muted)",
+  amber: "var(--warn)",
+  amberD: "var(--warn-muted)",
+  cyan: "var(--info)",
+  cyanD: "var(--info-muted)",
+  purple: "var(--primary)",
+
+  // Kept for chart compatibility (recharts needs actual hex)
+  chartGreen: "#34d399",
+  chartRed: "#f87171",
+  chartAmber: "#fbbf24",
+  chartCyan: "#22d3ee",
+  chartPurple: "#a78bfa",
+  chartBorder: "#2e2554",
+  chartBg: "#1a1433",
+  chartText: "#94a3b8",
+  chartTextBright: "#e2e8f0",
 };
 
 // ── Trading System Rules ──
