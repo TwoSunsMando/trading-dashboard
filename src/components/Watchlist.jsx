@@ -5,9 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import TradingViewChart from "./TradingViewChart";
+import TradingViewAnalysis from "./TradingViewAnalysis";
+import TradingViewMiniChart from "./TradingViewMiniChart";
 
 export default function Watchlist({ watchlist, addWLItem, updateWLItem, deleteWLItem }) {
   const [f, setF] = useState({ ticker: "", notes: "", setup: "breakout", alert: "" });
+  const [selectedTicker, setSelectedTicker] = useState(null);
 
   const add = () => {
     if (!f.ticker) return;
@@ -26,10 +30,16 @@ export default function Watchlist({ watchlist, addWLItem, updateWLItem, deleteWL
     triggered: "bg-profit-muted text-profit",
   };
 
+  const tvSymbol = (ticker) => {
+    const etfs = ["SPY", "QQQ", "IWM", "XLF", "XLE", "GLD", "TLT", "DIA", "VTI", "VOO"];
+    if (etfs.includes(ticker.toUpperCase())) return `AMEX:${ticker.toUpperCase()}`;
+    return `NASDAQ:${ticker.toUpperCase()}`;
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-1">Watchlist</h1>
-      <p className="text-muted-foreground text-xs mb-6">Sunday scan → Monday entries.</p>
+      <p className="text-muted-foreground text-xs mb-6">Sunday scan → Monday entries. Click a ticker to analyze.</p>
 
       <Card className="mb-5">
         <CardContent className="p-5">
@@ -45,28 +55,61 @@ export default function Watchlist({ watchlist, addWLItem, updateWLItem, deleteWL
         </CardContent>
       </Card>
 
+      {/* Chart + Analysis panel when ticker selected */}
+      {selectedTicker && (
+        <div className="mb-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground">{selectedTicker} — Chart & Analysis</h2>
+            <Button variant="outline" size="sm" onClick={() => setSelectedTicker(null)} className="text-xs">Close</Button>
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            <Card className="flex-[2] min-w-[400px]">
+              <CardContent className="p-0 overflow-hidden rounded-lg">
+                <TradingViewChart symbol={tvSymbol(selectedTicker)} interval="D" height={460} studies={["STD;SMA;v19", "STD;RSI"]} />
+              </CardContent>
+            </Card>
+            <Card className="flex-1 min-w-[280px]">
+              <CardContent className="p-0 overflow-hidden rounded-lg">
+                <TradingViewAnalysis symbol={tvSymbol(selectedTicker)} height={460} />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
       {watchlist.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <div className="text-3xl mb-3">◎</div>
           <div>Empty. Do your Sunday scan.</div>
         </div>
-      ) : watchlist.map(w => (
-        <Card key={w.id} className="mb-2">
-          <CardContent className="p-3.5 flex justify-between items-center flex-wrap gap-2">
-            <div className="flex items-center gap-2.5 flex-1">
-              <span className="font-bold text-sm text-foreground min-w-[50px]">{w.ticker}</span>
-              <Badge variant="outline" onClick={() => cycleStatus(w)}
-                className={cn("text-[10px] font-semibold cursor-pointer border-0 uppercase", statusStyle[w.status])}>
-                {w.status}
-              </Badge>
-              <span className="text-[10px] text-muted-foreground uppercase">{w.setup}</span>
-              {w.alert && <span className="text-xs text-warn">@ {fUSD(w.alert)}</span>}
-            </div>
-            {w.notes && <div className="text-xs text-muted-foreground flex-[1_1_100%]">{w.notes}</div>}
-            <Button variant="outline" size="sm" onClick={() => deleteWLItem(w.id)} className="h-7 text-[10px] px-2">✗</Button>
-          </CardContent>
-        </Card>
-      ))}
+      ) : (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3">
+          {watchlist.map(w => (
+            <Card key={w.id} className={cn("cursor-pointer transition-all hover:border-primary/50", selectedTicker === w.ticker && "border-primary")}>
+              <CardContent className="p-0">
+                {/* Mini chart */}
+                <div className="pointer-events-none" onClick={e => e.stopPropagation()}>
+                  <TradingViewMiniChart symbol={tvSymbol(w.ticker)} height={140} dateRange="1M" />
+                </div>
+                {/* Info row */}
+                <div className="px-3.5 pb-3 -mt-2">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="font-bold text-sm text-foreground cursor-pointer hover:text-primary" onClick={() => setSelectedTicker(selectedTicker === w.ticker ? null : w.ticker)}>{w.ticker}</span>
+                    <Badge variant="outline" onClick={(e) => { e.stopPropagation(); cycleStatus(w); }}
+                      className={cn("text-[10px] font-semibold cursor-pointer border-0 uppercase", statusStyle[w.status])}>
+                      {w.status}
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground uppercase">{w.setup}</span>
+                    {w.alert && <span className="text-xs text-warn">@ {fUSD(w.alert)}</span>}
+                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); deleteWLItem(w.id); }} className="h-6 text-[10px] px-1.5 ml-auto">✗</Button>
+                  </div>
+                  {w.notes && <div className="text-xs text-muted-foreground">{w.notes}</div>}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

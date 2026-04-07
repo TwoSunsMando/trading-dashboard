@@ -1,8 +1,12 @@
+import { useState } from "react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { C } from "../constants";
 import { fmt, fUSD, fPct } from "../helpers";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import TradingViewChart from "./TradingViewChart";
+import TradingViewAnalysis from "./TradingViewAnalysis";
 
 function Stat({ label, value, sub, color, icon }) {
   return (
@@ -35,6 +39,7 @@ function SRow({ label, ok, text }) {
 }
 
 export default function Dashboard({ settings, curCap, totalPnL, winRate, open, closed, maxRisk$, wkPnL, consLoss }) {
+  const [chartTicker, setChartTicker] = useState(null);
   const ret = ((curCap - settings.capital) / settings.capital) * 100;
   const avgW = closed.filter(t => (t.pnl||0) > 0);
   const avgL = closed.filter(t => (t.pnl||0) < 0);
@@ -133,17 +138,42 @@ export default function Dashboard({ settings, curCap, totalPnL, winRate, open, c
 
       {/* Open Positions */}
       {open.length > 0 && (
-        <Card>
+        <Card className="mb-6">
           <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground tracking-wider uppercase mb-4">◎ Open Positions</div>
+            <div className="text-xs text-muted-foreground tracking-wider uppercase mb-4">◎ Open Positions — click ticker to chart</div>
             {open.map(t => (
               <div key={t.id} className="flex justify-between items-center py-2 border-b border-border flex-wrap gap-2 last:border-0">
-                <div><span className="font-bold text-info">{t.ticker}</span><span className="text-muted-foreground ml-2 text-xs">{t.shares} @ {fUSD(t.entry)}</span></div>
+                <div>
+                  <span className="font-bold text-info cursor-pointer hover:text-primary transition-colors" onClick={() => setChartTicker(chartTicker === t.ticker ? null : t.ticker)}>{t.ticker}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{t.shares} @ {fUSD(t.entry)}</span>
+                </div>
                 <div className="text-xs text-muted-foreground">Stop: {fUSD(t.stop)} | Target: {fUSD(t.target)}</div>
               </div>
             ))}
           </CardContent>
         </Card>
+      )}
+
+      {/* TradingView Chart Panel */}
+      {chartTicker && (
+        <div className="mb-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground">{chartTicker} — Live Chart & Analysis</h2>
+            <Button variant="outline" size="sm" onClick={() => setChartTicker(null)} className="text-xs">Close</Button>
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            <Card className="flex-[2] min-w-[400px]">
+              <CardContent className="p-0 overflow-hidden rounded-lg">
+                <TradingViewChart symbol={`NASDAQ:${chartTicker}`} interval="D" height={460} studies={["STD;SMA;v19", "STD;RSI"]} />
+              </CardContent>
+            </Card>
+            <Card className="flex-1 min-w-[280px]">
+              <CardContent className="p-0 overflow-hidden rounded-lg">
+                <TradingViewAnalysis symbol={`NASDAQ:${chartTicker}`} height={460} />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       )}
     </div>
   );
