@@ -5,6 +5,7 @@ import { fmt, fUSD, fPct } from "../helpers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import TradingViewChart from "./TradingViewChart";
 import TradingViewAnalysis from "./TradingViewAnalysis";
 
@@ -40,6 +41,7 @@ function SRow({ label, ok, text }) {
 
 export default function Dashboard({ settings, curCap, totalPnL, winRate, open, closed, maxRisk$, wkPnL, consLoss }) {
   const [chartTicker, setChartTicker] = useState(null);
+  const [lookupInput, setLookupInput] = useState("");
   const ret = ((curCap - settings.capital) / settings.capital) * 100;
   const avgW = closed.filter(t => (t.pnl||0) > 0);
   const avgL = closed.filter(t => (t.pnl||0) < 0);
@@ -54,6 +56,51 @@ export default function Dashboard({ settings, curCap, totalPnL, winRate, open, c
     <div>
       <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
       <p className="text-muted-foreground text-xs mb-6">Your trading performance at a glance</p>
+
+      {/* Quick Chart Lookup */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="text-xs text-muted-foreground tracking-wider uppercase">◈ Chart Lookup</div>
+            <div className="flex gap-2 flex-1 min-w-[200px]">
+              <Input
+                value={lookupInput}
+                onChange={e => setLookupInput(e.target.value.toUpperCase())}
+                onKeyDown={e => { if (e.key === "Enter" && lookupInput.trim()) { setChartTicker(lookupInput.trim()); } }}
+                placeholder="Type ticker and press Enter (e.g. AAPL)"
+                className="flex-1 h-8 text-xs"
+              />
+              <Button size="sm" onClick={() => { if (lookupInput.trim()) setChartTicker(lookupInput.trim()); }} className="h-8 text-xs font-bold">CHART</Button>
+              {chartTicker && <Button variant="outline" size="sm" onClick={() => { setChartTicker(null); setLookupInput(""); }} className="h-8 text-xs">Close</Button>}
+            </div>
+            {open.length > 0 && open.map(t => (
+              <Button key={t.id} variant="outline" size="sm"
+                onClick={() => { setChartTicker(t.ticker); setLookupInput(t.ticker); }}
+                className={cn("h-7 text-[10px] font-semibold", chartTicker === t.ticker && "bg-primary text-primary-foreground")}>
+                {t.ticker}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* TradingView Chart Panel */}
+      {chartTicker && (
+        <div className="mb-6 space-y-3">
+          <div className="flex gap-3 flex-wrap">
+            <Card className="flex-[2] min-w-[400px]">
+              <CardContent className="p-0 overflow-hidden rounded-lg">
+                <TradingViewChart symbol={`NASDAQ:${chartTicker}`} interval="D" height={460} studies={["STD;SMA;v19", "STD;RSI"]} />
+              </CardContent>
+            </Card>
+            <Card className="flex-1 min-w-[280px]">
+              <CardContent className="p-0 overflow-hidden rounded-lg">
+                <TradingViewAnalysis symbol={`NASDAQ:${chartTicker}`} height={460} />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* Stat Cards */}
       <div className="flex flex-wrap gap-3 mb-6">
@@ -140,11 +187,11 @@ export default function Dashboard({ settings, curCap, totalPnL, winRate, open, c
       {open.length > 0 && (
         <Card className="mb-6">
           <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground tracking-wider uppercase mb-4">◎ Open Positions — click ticker to chart</div>
+            <div className="text-xs text-muted-foreground tracking-wider uppercase mb-4">◎ Open Positions</div>
             {open.map(t => (
               <div key={t.id} className="flex justify-between items-center py-2 border-b border-border flex-wrap gap-2 last:border-0">
                 <div>
-                  <span className="font-bold text-info cursor-pointer hover:text-primary transition-colors" onClick={() => setChartTicker(chartTicker === t.ticker ? null : t.ticker)}>{t.ticker}</span>
+                  <span className="font-bold text-info cursor-pointer hover:text-primary transition-colors" onClick={() => { setChartTicker(t.ticker); setLookupInput(t.ticker); }}>{t.ticker}</span>
                   <span className="text-muted-foreground ml-2 text-xs">{t.shares} @ {fUSD(t.entry)}</span>
                 </div>
                 <div className="text-xs text-muted-foreground">Stop: {fUSD(t.stop)} | Target: {fUSD(t.target)}</div>
@@ -154,27 +201,6 @@ export default function Dashboard({ settings, curCap, totalPnL, winRate, open, c
         </Card>
       )}
 
-      {/* TradingView Chart Panel */}
-      {chartTicker && (
-        <div className="mb-6 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-foreground">{chartTicker} — Live Chart & Analysis</h2>
-            <Button variant="outline" size="sm" onClick={() => setChartTicker(null)} className="text-xs">Close</Button>
-          </div>
-          <div className="flex gap-3 flex-wrap">
-            <Card className="flex-[2] min-w-[400px]">
-              <CardContent className="p-0 overflow-hidden rounded-lg">
-                <TradingViewChart symbol={`NASDAQ:${chartTicker}`} interval="D" height={460} studies={["STD;SMA;v19", "STD;RSI"]} />
-              </CardContent>
-            </Card>
-            <Card className="flex-1 min-w-[280px]">
-              <CardContent className="p-0 overflow-hidden rounded-lg">
-                <TradingViewAnalysis symbol={`NASDAQ:${chartTicker}`} height={460} />
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
