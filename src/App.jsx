@@ -8,6 +8,7 @@ import Calc from "./components/Calc";
 import Rules from "./components/Rules";
 import Watchlist from "./components/Watchlist";
 import Risk from "./components/Risk";
+import Coach from "./components/Coach";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -189,6 +190,7 @@ export default function App() {
     { id: "rules", label: "System Rules", icon: "◆" },
     { id: "watchlist", label: "Watchlist", icon: "◎" },
     { id: "risk", label: "Risk Tracker", icon: "△" },
+    { id: "coach", label: "AI Coach", icon: "✦" },
   ];
 
   return (
@@ -228,6 +230,12 @@ export default function App() {
         {tab === "rules" && <Rules />}
         {tab === "watchlist" && <Watchlist {...{ watchlist, addWLItem, updateWLItem, deleteWLItem }} />}
         {tab === "risk" && <Risk {...{ trades, settings, curCap, closed, wkPnL, consLoss }} />}
+        {tab === "coach" && <Coach portfolio={{
+          capital: curCap, startCapital: settings.capital, totalPnL, winRate,
+          openCount: open.length, maxPositions: settings.maxPositions,
+          wkPnL, consLoss,
+          openTrades: open.map(t => ({ ticker: t.ticker, shares: t.shares, entry: t.entry, stop: t.stop, target: t.target })),
+        }} />}
       </main>
       <Toast toasts={toasts} removeToast={removeToast} />
       {confirm && <ConfirmDialog message={confirm.message} onConfirm={confirm.onConfirm} onCancel={() => setConfirm(null)} />}
