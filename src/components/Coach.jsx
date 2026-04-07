@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { supabase } from "../supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,14 +42,26 @@ export default function Coach({ portfolio }) {
         .slice(1) // skip initial assistant greeting
         .map(m => ({ role: m.role, content: m.content }));
 
-      const { data, error } = await supabase.functions.invoke("ai-coach", {
-        body: { messages: apiMessages, portfolio },
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const res = await fetch(`${supabaseUrl}/functions/v1/ai-coach`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({ messages: apiMessages, portfolio }),
       });
 
-      if (error) throw new Error(error.message);
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`${res.status}: ${errBody}`);
+      }
+      const data = await res.json();
+      if (!data || !data.response) throw new Error("Empty response from coach");
       setMessages(prev => [...prev, { role: "assistant", content: data.response }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: "assistant", content: `Error: ${err.message}. Make sure the Edge Function is deployed and ANTHROPIC_API_KEY is set.` }]);
+      setMessages(prev => [...prev, { role: "assistant", content: `Error: ${err.message}` }]);
     } finally {
       setLoading(false);
       inputRef.current?.focus();
