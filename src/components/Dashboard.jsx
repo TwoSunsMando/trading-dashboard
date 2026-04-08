@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import TradingViewChart from "./TradingViewChart";
 import TradingViewAnalysis from "./TradingViewAnalysis";
+import ChartCoach from "./ChartCoach";
 
 function Stat({ label, value, sub, color, icon }) {
   return (
@@ -39,7 +40,7 @@ function SRow({ label, ok, text }) {
   );
 }
 
-export default function Dashboard({ settings, curCap, totalPnL, winRate, open, closed, maxRisk$, wkPnL, consLoss }) {
+export default function Dashboard({ settings, curCap, totalPnL, winRate, open, closed, maxRisk$, wkPnL, consLoss, coachPortfolio }) {
   const [chartTicker, setChartTicker] = useState(null);
   const [lookupInput, setLookupInput] = useState("");
   const ret = ((curCap - settings.capital) / settings.capital) * 100;
@@ -99,6 +100,7 @@ export default function Dashboard({ settings, curCap, totalPnL, winRate, open, c
               </CardContent>
             </Card>
           </div>
+          <ChartCoach ticker={chartTicker} portfolio={coachPortfolio} />
         </div>
       )}
 

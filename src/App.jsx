@@ -228,23 +228,30 @@ export default function App() {
 
       {/* Content */}
       <main className="p-5 max-w-[1100px] mx-auto">
-        {tab === "dashboard" && <Dashboard {...{ trades, settings, curCap, totalPnL, winRate, open, closed, maxRisk$: maxRisk$, wkPnL, consLoss }} />}
-        {tab === "trades" && <Trades {...{ trades, addTrade, updateTrade, deleteTrade, settings, curCap }} />}
-        {tab === "calc" && <Calc {...{ settings, setSettings, curCap }} />}
-        {tab === "rules" && <Rules />}
-        {tab === "watchlist" && <Watchlist {...{ watchlist, addWLItem, updateWLItem, deleteWLItem }} />}
-        {tab === "risk" && <Risk {...{ trades, settings, curCap, closed, wkPnL, consLoss }} />}
-        {tab === "coach" && <Coach portfolio={{
-          capital: curCap, startCapital: settings.capital, totalPnL, winRate,
-          openCount: open.length, maxPositions: settings.maxPositions,
-          wkPnL, consLoss,
-          openTrades: open.map(t => ({ ticker: t.ticker, shares: t.shares, entry: t.entry, stop: t.stop, target: t.target })),
-          closedTrades: closed.slice(0, 20).map(t => ({
-            ticker: t.ticker, type: t.type, setup: t.setup, pnl: t.pnl, rr: t.rr, closeDate: t.closeDate,
-            followedRules: t.followedRules, emotion: t.emotion,
-            lessons: t.journalLessons, mistakes: t.journalMistakes,
-          })),
-        }} />}
+        {(() => {
+          const coachPortfolio = {
+            capital: curCap, startCapital: settings.capital, totalPnL, winRate,
+            openCount: open.length, maxPositions: settings.maxPositions,
+            wkPnL, consLoss,
+            openTrades: open.map(t => ({ ticker: t.ticker, shares: t.shares, entry: t.entry, stop: t.stop, target: t.target })),
+            closedTrades: closed.slice(0, 20).map(t => ({
+              ticker: t.ticker, type: t.type, setup: t.setup, pnl: t.pnl, rr: t.rr, closeDate: t.closeDate,
+              followedRules: t.followedRules, emotion: t.emotion,
+              lessons: t.journalLessons, mistakes: t.journalMistakes,
+            })),
+          };
+          return (
+            <>
+              {tab === "dashboard" && <Dashboard {...{ trades, settings, curCap, totalPnL, winRate, open, closed, maxRisk$, wkPnL, consLoss, coachPortfolio }} />}
+              {tab === "trades" && <Trades {...{ trades, addTrade, updateTrade, deleteTrade, settings, curCap }} />}
+              {tab === "calc" && <Calc {...{ settings, setSettings, curCap }} />}
+              {tab === "rules" && <Rules />}
+              {tab === "watchlist" && <Watchlist {...{ watchlist, addWLItem, updateWLItem, deleteWLItem }} />}
+              {tab === "risk" && <Risk {...{ trades, settings, curCap, closed, wkPnL, consLoss }} />}
+              {tab === "coach" && <Coach portfolio={coachPortfolio} />}
+            </>
+          );
+        })()}
       </main>
       <Toast toasts={toasts} removeToast={removeToast} />
       {confirm && <ConfirmDialog message={confirm.message} onConfirm={confirm.onConfirm} onCancel={() => setConfirm(null)} />}

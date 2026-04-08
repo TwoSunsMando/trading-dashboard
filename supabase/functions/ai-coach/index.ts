@@ -58,6 +58,78 @@ const SYSTEM_PROMPT = `You are the Steiner Trading Coach — a disciplined, no-n
 
 When the user provides portfolio context (capital, open positions, P&L, etc.), factor it into your coaching. For example, if they have 3 open positions and want to enter a new trade, remind them of R2.`;
 
+// Fetch 1y of daily candles from Yahoo Finance and compute key technicals
+async function fetchMarketData(ticker: string) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y`;
+    const res = await fetch(url, {
+      headers: {
+        // Yahoo blocks bare requests without a UA
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    });
+    if (!res.ok) return { error: `Yahoo Finance returned ${res.status}` };
+    const data = await res.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) return { error: "No data returned" };
+
+    const closes: number[] = result.indicators?.quote?.[0]?.close?.filter((v: number | null) => v != null) ?? [];
+    const volumes: number[] = result.indicators?.quote?.[0]?.volume?.filter((v: number | null) => v != null) ?? [];
+    const highs: number[] = result.indicators?.quote?.[0]?.high?.filter((v: number | null) => v != null) ?? [];
+    const lows: number[] = result.indicators?.quote?.[0]?.low?.filter((v: number | null) => v != null) ?? [];
+    if (!closes.length) return { error: "No price data" };
+
+    const last = (arr: number[], n: number) => arr.slice(-n);
+    const avg = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / arr.length;
+    const max = (arr: number[]) => Math.max(...arr);
+    const min = (arr: number[]) => Math.min(...arr);
+
+    const price = closes[closes.length - 1];
+    const prevClose = closes[closes.length - 2] ?? price;
+    const dayChangePct = ((price - prevClose) / prevClose) * 100;
+
+    const sma50 = closes.length >= 50 ? avg(last(closes, 50)) : null;
+    const sma200 = closes.length >= 200 ? avg(last(closes, 200)) : null;
+
+    const todayVol = volumes[volumes.length - 1];
+    const avgVol30 = volumes.length >= 30 ? avg(last(volumes, 30)) : null;
+    const volRatio = avgVol30 ? todayVol / avgVol30 : null;
+
+    const high52 = max(closes);
+    const low52 = min(closes);
+    const distFromHigh = ((price - high52) / high52) * 100;
+    const distFromLow = ((price - low52) / low52) * 100;
+
+    // Last 10 days of recent action for trend feel
+    const recent = last(closes, 10).map(v => v.toFixed(2)).join(", ");
+    const recentVols = last(volumes, 10).map(v => Math.round(v / 1000) + "k").join(", ");
+
+    return {
+      price: +price.toFixed(2),
+      dayChangePct: +dayChangePct.toFixed(2),
+      sma50: sma50 ? +sma50.toFixed(2) : null,
+      sma200: sma200 ? +sma200.toFixed(2) : null,
+      aboveSma50: sma50 ? price > sma50 : null,
+      aboveSma200: sma200 ? price > sma200 : null,
+      pctAboveSma50: sma50 ? +(((price - sma50) / sma50) * 100).toFixed(2) : null,
+      todayVol,
+      avgVol30,
+      volRatio: volRatio ? +volRatio.toFixed(2) : null,
+      volAboveAvg: volRatio ? volRatio > 1.0 : null,
+      high52: +high52.toFixed(2),
+      low52: +low52.toFixed(2),
+      distFromHigh: +distFromHigh.toFixed(2),
+      distFromLow: +distFromLow.toFixed(2),
+      recent10Closes: recent,
+      recent10Volumes: recentVols,
+      dayHigh: highs.length ? +highs[highs.length - 1].toFixed(2) : null,
+      dayLow: lows.length ? +lows[lows.length - 1].toFixed(2) : null,
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -79,7 +151,39 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { messages, portfolio } = await req.json();
+    const { messages, portfolio, chartTicker } = await req.json();
+
+    // If a chart ticker is provided, fetch live market data and append to context
+    let chartBlock = "";
+    if (chartTicker && typeof chartTicker === "string") {
+      const md = await fetchMarketData(chartTicker.toUpperCase().trim());
+      if ((md as any).error) {
+        chartBlock = `\n\n## CHART CONTEXT
+The user is currently looking at a chart for ${chartTicker.toUpperCase()}, but I couldn't fetch market data: ${(md as any).error}`;
+      } else {
+        const m = md as any;
+        const checks: string[] = [];
+        if (m.aboveSma50 != null) checks.push(`E1 (above 50MA): ${m.aboveSma50 ? "✓ PASS" : "✗ FAIL"} — price $${m.price} vs 50MA $${m.sma50} (${m.pctAboveSma50 > 0 ? "+" : ""}${m.pctAboveSma50}%)`);
+        if (m.volAboveAvg != null) checks.push(`E2 (above-avg volume): ${m.volAboveAvg ? "✓ PASS" : "✗ FAIL"} — today's volume is ${m.volRatio}x the 30-day average`);
+
+        chartBlock = `\n\n## CHART CONTEXT — User is analyzing ${chartTicker.toUpperCase()}
+- Current price: $${m.price} (${m.dayChangePct > 0 ? "+" : ""}${m.dayChangePct}% today)
+- Day range: $${m.dayLow} – $${m.dayHigh}
+- 50-day MA: $${m.sma50 ?? "N/A"} (${m.aboveSma50 ? "ABOVE" : "BELOW"})
+- 200-day MA: $${m.sma200 ?? "N/A"} (${m.aboveSma200 ? "ABOVE" : "BELOW"})
+- Today's volume vs 30-day avg: ${m.volRatio ? `${m.volRatio}x` : "N/A"} ${m.volAboveAvg ? "(above average)" : "(below average)"}
+- 52-week range: $${m.low52} – $${m.high52}
+- Distance from 52w high: ${m.distFromHigh}%
+- Distance from 52w low: +${m.distFromLow}%
+- Last 10 closes: ${m.recent10Closes}
+- Last 10 volumes: ${m.recent10Volumes}
+
+## SYSTEM RULE CHECKS FOR ${chartTicker.toUpperCase()}
+${checks.join("\n")}
+
+When the user asks about this chart, USE THIS DATA. Reference specific numbers. Tell them whether this stock currently passes the entry rules (E1, E2) per the Steiner system. Be direct — is this a valid setup or not? What setup type would it be (breakout, pullback, bounce)? What would the stop and target look like?`;
+      }
+    }
 
     // Build context message from portfolio data if provided
     let contextBlock = "";
@@ -135,7 +239,7 @@ When the user asks about patterns, mistakes, edge, or how to improve, USE THIS D
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1024,
-        system: SYSTEM_PROMPT + contextBlock,
+        system: SYSTEM_PROMPT + contextBlock + chartBlock,
         messages: messages.slice(-20), // Keep last 20 messages for context
       }),
     });
