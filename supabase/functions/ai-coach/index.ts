@@ -92,6 +92,20 @@ Deno.serve(async (req) => {
 - Week P&L: $${portfolio.wkPnL?.toFixed(2) ?? "N/A"}
 - Consecutive Losses: ${portfolio.consLoss ?? 0}
 - Open Trades: ${portfolio.openTrades?.map((t: any) => `${t.ticker} (${t.shares} shares @ $${t.entry}, stop $${t.stop}, target $${t.target})`).join("; ") || "None"}`;
+
+      if (portfolio.closedTrades?.length) {
+        contextBlock += `\n\n## RECENT CLOSED TRADES (with journal entries)
+${portfolio.closedTrades.map((t: any) => {
+  const lines = [`- ${t.ticker} (${t.type}): P&L $${t.pnl?.toFixed(2)}, R:R ${t.rr?.toFixed(1)}:1, closed ${t.closeDate}`];
+  if (t.followedRules === false) lines.push(`  ⚠ BROKE RULES`);
+  if (t.emotion) lines.push(`  Emotion: ${t.emotion}`);
+  if (t.lessons) lines.push(`  Right: ${t.lessons}`);
+  if (t.mistakes) lines.push(`  Wrong: ${t.mistakes}`);
+  return lines.join("\n");
+}).join("\n")}
+
+When the user asks about patterns, mistakes, or how to improve, USE THIS DATA. Look for repeated emotions, broken rules, common mistakes — be specific and reference actual trades.`;
+      }
     }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {

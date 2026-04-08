@@ -97,6 +97,10 @@ export default function App() {
     if (updates.closeDate !== undefined) dbUpdates.close_date = updates.closeDate;
     if (updates.closePrice !== undefined) dbUpdates.close_price = updates.closePrice;
     if (updates.pnl !== undefined) dbUpdates.pnl = updates.pnl;
+    if (updates.journalLessons !== undefined) dbUpdates.journal_lessons = updates.journalLessons || null;
+    if (updates.journalMistakes !== undefined) dbUpdates.journal_mistakes = updates.journalMistakes || null;
+    if (updates.followedRules !== undefined) dbUpdates.followed_rules = updates.followedRules;
+    if (updates.emotion !== undefined) dbUpdates.emotion = updates.emotion || null;
     const { error } = await supabase.from("trades").update(dbUpdates).eq("id", id);
     if (error) { setTrades(p => p.map(t => t.id !== id ? t : prev)); toast("Failed to update trade", "error"); }
     else toast("Trade updated");
@@ -235,6 +239,11 @@ export default function App() {
           openCount: open.length, maxPositions: settings.maxPositions,
           wkPnL, consLoss,
           openTrades: open.map(t => ({ ticker: t.ticker, shares: t.shares, entry: t.entry, stop: t.stop, target: t.target })),
+          closedTrades: closed.slice(0, 20).map(t => ({
+            ticker: t.ticker, type: t.type, pnl: t.pnl, rr: t.rr, closeDate: t.closeDate,
+            followedRules: t.followedRules, emotion: t.emotion,
+            lessons: t.journalLessons, mistakes: t.journalMistakes,
+          })),
         }} />}
       </main>
       <Toast toasts={toasts} removeToast={removeToast} />

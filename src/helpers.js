@@ -12,12 +12,16 @@ export const rowToTrade = (r) => ({
   shares: r.shares, thesis: r.thesis, date: r.date, type: r.type, status: r.status,
   riskPerShare: Number(r.risk_per_share), totalRisk: Number(r.total_risk), positionSize: Number(r.position_size),
   rr: Number(r.rr), closeDate: r.close_date, closePrice: r.close_price ? Number(r.close_price) : null, pnl: r.pnl ? Number(r.pnl) : null,
+  journalLessons: r.journal_lessons || "", journalMistakes: r.journal_mistakes || "",
+  followedRules: r.followed_rules, emotion: r.emotion || "",
 });
 export const tradeToRow = (t, userId) => ({
   id: t.id, user_id: userId, ticker: t.ticker, entry: t.entry, stop: t.stop, target: t.target,
   shares: t.shares, thesis: t.thesis, date: t.date, type: t.type, status: t.status,
   risk_per_share: t.riskPerShare, total_risk: t.totalRisk, position_size: t.positionSize,
   rr: t.rr, close_date: t.closeDate, close_price: t.closePrice, pnl: t.pnl,
+  journal_lessons: t.journalLessons || null, journal_mistakes: t.journalMistakes || null,
+  followed_rules: t.followedRules ?? null, emotion: t.emotion || null,
 });
 export const rowToWL = (r) => ({
   id: r.id, ticker: r.ticker, notes: r.notes, setup: r.setup, alert: r.alert ? Number(r.alert) : null, date: r.date, status: r.status,

@@ -23,6 +23,10 @@ create table public.trades (
   close_date date,
   close_price numeric,
   pnl numeric,
+  journal_lessons text,
+  journal_mistakes text,
+  followed_rules boolean,
+  emotion text,
   created_at timestamptz default now()
 );
 

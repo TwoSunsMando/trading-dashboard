@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { C } from "../constants";
 import { fmt, fUSD, uid, td } from "../helpers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +10,9 @@ export default function Trades({ trades, addTrade, updateTrade, deleteTrade, set
   const [show, setShow] = useState(false);
   const [f, setF] = useState({ ticker: "", entry: "", shares: "", stop: "", target: "", thesis: "", date: td(), type: "swing" });
   const [cfId, setCfId] = useState(null);
-  const [cp, setCp] = useState("");
+  const [closeForm, setCloseForm] = useState({ price: "", lessons: "", mistakes: "", followedRules: true, emotion: "" });
+  const [editJournalId, setEditJournalId] = useState(null);
+  const [journalForm, setJournalForm] = useState({ lessons: "", mistakes: "", followedRules: true, emotion: "" });
   const [filter, setFilter] = useState({ search: "", status: "all", type: "all" });
   const [sort, setSort] = useState({ field: "date", dir: "desc" });
   const maxR = curCap * (settings.maxRiskPct / 100);
@@ -40,11 +41,41 @@ export default function Trades({ trades, addTrade, updateTrade, deleteTrade, set
     setShow(false);
   };
 
+  const startClose = (id) => {
+    setCfId(id);
+    setCloseForm({ price: "", lessons: "", mistakes: "", followedRules: true, emotion: "" });
+  };
+
   const close = (id) => {
-    const c = parseFloat(cp); if (isNaN(c)) return;
+    const c = parseFloat(closeForm.price); if (isNaN(c)) return;
     const t = trades.find(t => t.id === id);
-    updateTrade(id, { status: "closed", closeDate: td(), closePrice: c, pnl: (c - t.entry) * t.shares });
-    setCfId(null); setCp("");
+    updateTrade(id, {
+      status: "closed", closeDate: td(), closePrice: c, pnl: (c - t.entry) * t.shares,
+      journalLessons: closeForm.lessons, journalMistakes: closeForm.mistakes,
+      followedRules: closeForm.followedRules, emotion: closeForm.emotion,
+    });
+    setCfId(null);
+    setCloseForm({ price: "", lessons: "", mistakes: "", followedRules: true, emotion: "" });
+  };
+
+  const startEditJournal = (t) => {
+    setEditJournalId(t.id);
+    setJournalForm({
+      lessons: t.journalLessons || "",
+      mistakes: t.journalMistakes || "",
+      followedRules: t.followedRules ?? true,
+      emotion: t.emotion || "",
+    });
+  };
+
+  const saveJournal = (id) => {
+    updateTrade(id, {
+      journalLessons: journalForm.lessons,
+      journalMistakes: journalForm.mistakes,
+      followedRules: journalForm.followedRules,
+      emotion: journalForm.emotion,
+    });
+    setEditJournalId(null);
   };
 
   return (
@@ -141,13 +172,14 @@ export default function Trades({ trades, addTrade, updateTrade, deleteTrade, set
                 <span className="text-[10px] text-muted-foreground uppercase">{t.type}</span>
               </div>
               <div className="flex gap-1.5">
-                {t.status === "open" && (cfId === t.id ? (
-                  <div className="flex gap-1">
-                    <Input type="number" step="0.01" placeholder="Close $" value={cp} onChange={e => setCp(e.target.value)} className="w-[100px] h-7 text-xs" />
-                    <Button size="sm" onClick={() => close(t.id)} className="h-7 text-[10px] font-bold">CLOSE</Button>
-                    <Button variant="outline" size="sm" onClick={() => { setCfId(null); setCp(""); }} className="h-7 text-[10px] px-2">✗</Button>
-                  </div>
-                ) : <Button variant="outline" size="sm" onClick={() => setCfId(t.id)} className="h-7 text-[10px] font-semibold bg-warn-muted text-warn border-warn/30 hover:bg-warn-muted/80">CLOSE TRADE</Button>)}
+                {t.status === "open" && cfId !== t.id && (
+                  <Button variant="outline" size="sm" onClick={() => startClose(t.id)} className="h-7 text-[10px] font-semibold bg-warn-muted text-warn border-warn/30 hover:bg-warn-muted/80">CLOSE TRADE</Button>
+                )}
+                {t.status === "closed" && editJournalId !== t.id && (
+                  <Button variant="outline" size="sm" onClick={() => startEditJournal(t)} className="h-7 text-[10px] font-semibold">
+                    {t.journalLessons || t.journalMistakes ? "EDIT JOURNAL" : "+ JOURNAL"}
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => deleteTrade(t.id)} className="h-7 text-[10px] px-2">✗</Button>
               </div>
             </div>
@@ -161,6 +193,110 @@ export default function Trades({ trades, addTrade, updateTrade, deleteTrade, set
               {t.status === "closed" && <span>P&L: <strong className={(t.pnl||0) >= 0 ? "text-profit" : "text-loss"}>{fUSD(t.pnl)}</strong></span>}
             </div>
             {t.thesis && <div className="text-xs text-muted-foreground mt-2 italic border-l-2 border-border pl-2.5">{t.thesis}</div>}
+
+            {/* Close Trade form (inline expand) */}
+            {cfId === t.id && (
+              <div className="mt-3 p-3.5 bg-accent rounded-lg border border-warn/20 space-y-3">
+                <div className="text-[10px] text-warn tracking-wider font-semibold uppercase">◉ Closing Trade — Journal Required</div>
+                <div className="grid grid-cols-[140px_1fr] gap-3 items-end">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground block mb-1">CLOSE PRICE</label>
+                    <Input type="number" step="0.01" placeholder="0.00" value={closeForm.price}
+                      onChange={e => setCloseForm({ ...closeForm, price: e.target.value })} className="h-9" autoFocus />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground block mb-1">EMOTION DURING TRADE</label>
+                    <select className="w-full h-9 rounded-md border border-border bg-input px-3 text-sm text-foreground"
+                      value={closeForm.emotion} onChange={e => setCloseForm({ ...closeForm, emotion: e.target.value })}>
+                      <option value="">— select —</option>
+                      <option value="calm">Calm / disciplined</option>
+                      <option value="confident">Confident</option>
+                      <option value="anxious">Anxious / nervous</option>
+                      <option value="fomo">FOMO / chasing</option>
+                      <option value="revenge">Revenge / angry</option>
+                      <option value="bored">Bored / forced</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground block mb-1">WHAT WENT RIGHT? (lessons / what to repeat)</label>
+                  <textarea className="w-full min-h-[60px] rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground resize-y focus:border-ring focus:outline-none"
+                    value={closeForm.lessons} onChange={e => setCloseForm({ ...closeForm, lessons: e.target.value })}
+                    placeholder="Followed the system, took profit at 2R, kept stop tight..." />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground block mb-1">WHAT WENT WRONG? (mistakes / what to avoid)</label>
+                  <textarea className="w-full min-h-[60px] rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground resize-y focus:border-ring focus:outline-none"
+                    value={closeForm.mistakes} onChange={e => setCloseForm({ ...closeForm, mistakes: e.target.value })}
+                    placeholder="Entered too early, ignored low volume, moved stop..." />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id={`fr-${t.id}`} checked={closeForm.followedRules}
+                    onChange={e => setCloseForm({ ...closeForm, followedRules: e.target.checked })}
+                    className="h-4 w-4 rounded border-border" />
+                  <label htmlFor={`fr-${t.id}`} className="text-xs text-foreground cursor-pointer">I followed all system rules on this trade</label>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" size="sm" onClick={() => setCfId(null)} className="text-xs">CANCEL</Button>
+                  <Button size="sm" onClick={() => close(t.id)} disabled={!closeForm.price} className="text-xs font-bold">CLOSE TRADE</Button>
+                </div>
+              </div>
+            )}
+
+            {/* Journal display (closed trades, not editing) */}
+            {t.status === "closed" && editJournalId !== t.id && (t.journalLessons || t.journalMistakes || t.emotion) && (
+              <div className="mt-3 p-3 bg-accent/50 rounded-lg border border-border space-y-2">
+                <div className="flex items-center gap-2 text-[10px] tracking-wider uppercase font-semibold">
+                  <span className="text-muted-foreground">◆ Journal</span>
+                  {t.followedRules === true && <span className="text-profit">✓ Followed Rules</span>}
+                  {t.followedRules === false && <span className="text-loss">✗ Broke Rules</span>}
+                  {t.emotion && <span className="text-info">{t.emotion}</span>}
+                </div>
+                {t.journalLessons && <div className="text-xs text-foreground"><span className="text-profit font-semibold">Right:</span> {t.journalLessons}</div>}
+                {t.journalMistakes && <div className="text-xs text-foreground"><span className="text-loss font-semibold">Wrong:</span> {t.journalMistakes}</div>}
+              </div>
+            )}
+
+            {/* Journal edit form */}
+            {editJournalId === t.id && (
+              <div className="mt-3 p-3.5 bg-accent rounded-lg border border-border space-y-3">
+                <div className="text-[10px] text-muted-foreground tracking-wider font-semibold uppercase">◆ Edit Journal</div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground block mb-1">EMOTION DURING TRADE</label>
+                  <select className="w-full h-9 rounded-md border border-border bg-input px-3 text-sm text-foreground"
+                    value={journalForm.emotion} onChange={e => setJournalForm({ ...journalForm, emotion: e.target.value })}>
+                    <option value="">— select —</option>
+                    <option value="calm">Calm / disciplined</option>
+                    <option value="confident">Confident</option>
+                    <option value="anxious">Anxious / nervous</option>
+                    <option value="fomo">FOMO / chasing</option>
+                    <option value="revenge">Revenge / angry</option>
+                    <option value="bored">Bored / forced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground block mb-1">WHAT WENT RIGHT?</label>
+                  <textarea className="w-full min-h-[60px] rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground resize-y focus:border-ring focus:outline-none"
+                    value={journalForm.lessons} onChange={e => setJournalForm({ ...journalForm, lessons: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground block mb-1">WHAT WENT WRONG?</label>
+                  <textarea className="w-full min-h-[60px] rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground resize-y focus:border-ring focus:outline-none"
+                    value={journalForm.mistakes} onChange={e => setJournalForm({ ...journalForm, mistakes: e.target.value })} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id={`fr-edit-${t.id}`} checked={journalForm.followedRules}
+                    onChange={e => setJournalForm({ ...journalForm, followedRules: e.target.checked })}
+                    className="h-4 w-4 rounded border-border" />
+                  <label htmlFor={`fr-edit-${t.id}`} className="text-xs text-foreground cursor-pointer">I followed all system rules on this trade</label>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" size="sm" onClick={() => setEditJournalId(null)} className="text-xs">CANCEL</Button>
+                  <Button size="sm" onClick={() => saveJournal(t.id)} className="text-xs font-bold">SAVE JOURNAL</Button>
+                </div>
+              </div>
+            )}
+
             <div className="text-[10px] text-muted-foreground/70 mt-1.5">{t.date}{t.closeDate ? ` → ${t.closeDate}` : ""}</div>
           </CardContent>
         </Card>
