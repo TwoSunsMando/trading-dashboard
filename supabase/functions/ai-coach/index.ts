@@ -94,9 +94,26 @@ Deno.serve(async (req) => {
 - Open Trades: ${portfolio.openTrades?.map((t: any) => `${t.ticker} (${t.shares} shares @ $${t.entry}, stop $${t.stop}, target $${t.target})`).join("; ") || "None"}`;
 
       if (portfolio.closedTrades?.length) {
-        contextBlock += `\n\n## RECENT CLOSED TRADES (with journal entries)
+        // Aggregate by setup type for quick win-rate stats
+        const bySetup: Record<string, { wins: number; losses: number; pnl: number }> = {};
+        for (const t of portfolio.closedTrades) {
+          const key = t.setup || "untagged";
+          if (!bySetup[key]) bySetup[key] = { wins: 0, losses: 0, pnl: 0 };
+          if ((t.pnl ?? 0) >= 0) bySetup[key].wins++; else bySetup[key].losses++;
+          bySetup[key].pnl += t.pnl ?? 0;
+        }
+        const setupStats = Object.entries(bySetup).map(([setup, s]) => {
+          const total = s.wins + s.losses;
+          const wr = total ? ((s.wins / total) * 100).toFixed(0) : "0";
+          return `  • ${setup}: ${s.wins}W/${s.losses}L (${wr}% win rate, $${s.pnl.toFixed(2)} total P&L)`;
+        }).join("\n");
+
+        contextBlock += `\n\n## SETUP PERFORMANCE BREAKDOWN
+${setupStats}
+
+## RECENT CLOSED TRADES (with journal entries)
 ${portfolio.closedTrades.map((t: any) => {
-  const lines = [`- ${t.ticker} (${t.type}): P&L $${t.pnl?.toFixed(2)}, R:R ${t.rr?.toFixed(1)}:1, closed ${t.closeDate}`];
+  const lines = [`- ${t.ticker} (${t.type}${t.setup ? `, ${t.setup}` : ""}): P&L $${t.pnl?.toFixed(2)}, R:R ${t.rr?.toFixed(1)}:1, closed ${t.closeDate}`];
   if (t.followedRules === false) lines.push(`  ⚠ BROKE RULES`);
   if (t.emotion) lines.push(`  Emotion: ${t.emotion}`);
   if (t.lessons) lines.push(`  Right: ${t.lessons}`);
@@ -104,7 +121,7 @@ ${portfolio.closedTrades.map((t: any) => {
   return lines.join("\n");
 }).join("\n")}
 
-When the user asks about patterns, mistakes, or how to improve, USE THIS DATA. Look for repeated emotions, broken rules, common mistakes — be specific and reference actual trades.`;
+When the user asks about patterns, mistakes, edge, or how to improve, USE THIS DATA. The SETUP PERFORMANCE BREAKDOWN shows which setup types are working — reference it directly. Look for repeated emotions, broken rules, common mistakes — be specific and reference actual trades.`;
       }
     }
 

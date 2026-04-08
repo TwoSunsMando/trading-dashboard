@@ -13,7 +13,7 @@ export const rowToTrade = (r) => ({
   riskPerShare: Number(r.risk_per_share), totalRisk: Number(r.total_risk), positionSize: Number(r.position_size),
   rr: Number(r.rr), closeDate: r.close_date, closePrice: r.close_price ? Number(r.close_price) : null, pnl: r.pnl ? Number(r.pnl) : null,
   journalLessons: r.journal_lessons || "", journalMistakes: r.journal_mistakes || "",
-  followedRules: r.followed_rules, emotion: r.emotion || "",
+  followedRules: r.followed_rules, emotion: r.emotion || "", setup: r.setup || "",
 });
 export const tradeToRow = (t, userId) => ({
   id: t.id, user_id: userId, ticker: t.ticker, entry: t.entry, stop: t.stop, target: t.target,
@@ -21,8 +21,18 @@ export const tradeToRow = (t, userId) => ({
   risk_per_share: t.riskPerShare, total_risk: t.totalRisk, position_size: t.positionSize,
   rr: t.rr, close_date: t.closeDate, close_price: t.closePrice, pnl: t.pnl,
   journal_lessons: t.journalLessons || null, journal_mistakes: t.journalMistakes || null,
-  followed_rules: t.followedRules ?? null, emotion: t.emotion || null,
+  followed_rules: t.followedRules ?? null, emotion: t.emotion || null, setup: t.setup || null,
 });
+
+// Setup catalog matching the system rules (E4: breakout, bounce off support, pullback to MA)
+export const SETUPS = [
+  { id: "breakout", label: "Breakout" },
+  { id: "pullback", label: "Pullback to MA" },
+  { id: "bounce", label: "Bounce off Support" },
+  { id: "etf-rotation", label: "ETF Rotation" },
+  { id: "other", label: "Other" },
+];
+export const setupLabel = (id) => SETUPS.find(s => s.id === id)?.label || id || "—";
 export const rowToWL = (r) => ({
   id: r.id, ticker: r.ticker, notes: r.notes, setup: r.setup, alert: r.alert ? Number(r.alert) : null, date: r.date, status: r.status,
 });

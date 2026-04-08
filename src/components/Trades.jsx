@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fmt, fUSD, uid, td } from "../helpers";
+import { fmt, fUSD, uid, td, SETUPS, setupLabel } from "../helpers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,12 @@ import { cn } from "@/lib/utils";
 
 export default function Trades({ trades, addTrade, updateTrade, deleteTrade, settings, curCap }) {
   const [show, setShow] = useState(false);
-  const [f, setF] = useState({ ticker: "", entry: "", shares: "", stop: "", target: "", thesis: "", date: td(), type: "swing" });
+  const [f, setF] = useState({ ticker: "", entry: "", shares: "", stop: "", target: "", thesis: "", date: td(), type: "swing", setup: "breakout" });
   const [cfId, setCfId] = useState(null);
   const [closeForm, setCloseForm] = useState({ price: "", lessons: "", mistakes: "", followedRules: true, emotion: "" });
   const [editJournalId, setEditJournalId] = useState(null);
   const [journalForm, setJournalForm] = useState({ lessons: "", mistakes: "", followedRules: true, emotion: "" });
-  const [filter, setFilter] = useState({ search: "", status: "all", type: "all" });
+  const [filter, setFilter] = useState({ search: "", status: "all", type: "all", setup: "all" });
   const [sort, setSort] = useState({ field: "date", dir: "desc" });
   const maxR = curCap * (settings.maxRiskPct / 100);
   const maxP = curCap * (settings.maxPosPct / 100);
@@ -22,6 +22,7 @@ export default function Trades({ trades, addTrade, updateTrade, deleteTrade, set
   const filtered = trades
     .filter(t => filter.status === "all" || t.status === filter.status)
     .filter(t => filter.type === "all" || t.type === filter.type)
+    .filter(t => filter.setup === "all" || t.setup === filter.setup)
     .filter(t => !filter.search || t.ticker.toLowerCase().includes(filter.search.toLowerCase()))
     .sort((a, b) => {
       const d = sort.dir === "asc" ? 1 : -1;
@@ -36,8 +37,8 @@ export default function Trades({ trades, addTrade, updateTrade, deleteTrade, set
     const e = parseFloat(f.entry), s = parseFloat(f.stop), tg = parseFloat(f.target), sh = parseInt(f.shares);
     if (!f.ticker || isNaN(e) || isNaN(s) || isNaN(sh)) return;
     const rps = Math.abs(e - s), tr = rps * sh, ps = e * sh, rr = tg ? (tg - e) / rps : 0;
-    addTrade({ id: uid(), ticker: f.ticker.toUpperCase(), entry: e, stop: s, target: tg, shares: sh, thesis: f.thesis, date: f.date, type: f.type, status: "open", riskPerShare: rps, totalRisk: tr, positionSize: ps, rr, closeDate: null, closePrice: null, pnl: null });
-    setF({ ticker: "", entry: "", shares: "", stop: "", target: "", thesis: "", date: td(), type: "swing" });
+    addTrade({ id: uid(), ticker: f.ticker.toUpperCase(), entry: e, stop: s, target: tg, shares: sh, thesis: f.thesis, date: f.date, type: f.type, setup: f.setup, status: "open", riskPerShare: rps, totalRisk: tr, positionSize: ps, rr, closeDate: null, closePrice: null, pnl: null });
+    setF({ ticker: "", entry: "", shares: "", stop: "", target: "", thesis: "", date: td(), type: "swing", setup: "breakout" });
     setShow(false);
   };
 
@@ -103,14 +104,18 @@ export default function Trades({ trades, addTrade, updateTrade, deleteTrade, set
         <select className="h-8 rounded-md border border-border bg-input px-2.5 text-xs text-foreground" value={filter.type} onChange={e => setFilter({ ...filter, type: e.target.value })}>
           <option value="all">All Types</option><option value="swing">Swing</option><option value="position">Position</option><option value="etf">ETF</option>
         </select>
+        <select className="h-8 rounded-md border border-border bg-input px-2.5 text-xs text-foreground" value={filter.setup} onChange={e => setFilter({ ...filter, setup: e.target.value })}>
+          <option value="all">All Setups</option>
+          {SETUPS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>
         <select className="h-8 rounded-md border border-border bg-input px-2.5 text-xs text-foreground" value={`${sort.field}-${sort.dir}`} onChange={e => { const [field, dir] = e.target.value.split("-"); setSort({ field, dir }); }}>
           <option value="date-desc">Newest First</option><option value="date-asc">Oldest First</option>
           <option value="pnl-desc">P&L High→Low</option><option value="pnl-asc">P&L Low→High</option>
           <option value="rr-desc">R:R High→Low</option><option value="rr-asc">R:R Low→High</option>
           <option value="ticker-asc">Ticker A→Z</option><option value="ticker-desc">Ticker Z→A</option>
         </select>
-        {(filter.search || filter.status !== "all" || filter.type !== "all") && (
-          <Button variant="outline" size="sm" onClick={() => setFilter({ search: "", status: "all", type: "all" })} className="h-8 text-[10px]">CLEAR</Button>
+        {(filter.search || filter.status !== "all" || filter.type !== "all" || filter.setup !== "all") && (
+          <Button variant="outline" size="sm" onClick={() => setFilter({ search: "", status: "all", type: "all", setup: "all" })} className="h-8 text-[10px]">CLEAR</Button>
         )}
         <span className="text-[10px] text-muted-foreground ml-auto">{filtered.length} of {trades.length} trades</span>
       </div>
@@ -129,6 +134,11 @@ export default function Trades({ trades, addTrade, updateTrade, deleteTrade, set
               <div><label className="text-[10px] text-muted-foreground block mb-1">DATE</label><Input type="date" value={f.date} onChange={e => setF({...f, date: e.target.value})} /></div>
               <div><label className="text-[10px] text-muted-foreground block mb-1">TYPE</label>
                 <select className="w-full h-9 rounded-md border border-border bg-input px-3 text-sm text-foreground" value={f.type} onChange={e => setF({...f, type: e.target.value})}><option value="swing">Swing</option><option value="position">Position</option><option value="etf">ETF</option></select>
+              </div>
+              <div><label className="text-[10px] text-muted-foreground block mb-1">SETUP (Rule E4)</label>
+                <select className="w-full h-9 rounded-md border border-border bg-input px-3 text-sm text-foreground" value={f.setup} onChange={e => setF({...f, setup: e.target.value})}>
+                  {SETUPS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                </select>
               </div>
             </div>
             <div className="mt-3">
@@ -169,6 +179,7 @@ export default function Trades({ trades, addTrade, updateTrade, deleteTrade, set
                 <Badge variant="outline" className={cn("text-[10px] font-semibold border-0",
                   t.status === "open" ? "bg-info-muted text-info" : (t.pnl||0) >= 0 ? "bg-profit-muted text-profit" : "bg-loss-muted text-loss"
                 )}>{t.status === "open" ? "OPEN" : (t.pnl||0) >= 0 ? "WIN" : "LOSS"}</Badge>
+                {t.setup && <Badge variant="outline" className="text-[10px] font-semibold border-0 bg-primary/15 text-primary">{setupLabel(t.setup)}</Badge>}
                 <span className="text-[10px] text-muted-foreground uppercase">{t.type}</span>
               </div>
               <div className="flex gap-1.5">

@@ -27,6 +27,7 @@ create table public.trades (
   journal_mistakes text,
   followed_rules boolean,
   emotion text,
+  setup text,
   created_at timestamptz default now()
 );
 

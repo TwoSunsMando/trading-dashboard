@@ -240,7 +240,7 @@ export default function App() {
           wkPnL, consLoss,
           openTrades: open.map(t => ({ ticker: t.ticker, shares: t.shares, entry: t.entry, stop: t.stop, target: t.target })),
           closedTrades: closed.slice(0, 20).map(t => ({
-            ticker: t.ticker, type: t.type, pnl: t.pnl, rr: t.rr, closeDate: t.closeDate,
+            ticker: t.ticker, type: t.type, setup: t.setup, pnl: t.pnl, rr: t.rr, closeDate: t.closeDate,
             followedRules: t.followedRules, emotion: t.emotion,
             lessons: t.journalLessons, mistakes: t.journalMistakes,
           })),
