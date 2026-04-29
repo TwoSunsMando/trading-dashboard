@@ -46,6 +46,10 @@ export default function CryptoBot({ toast }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [verdict, setVerdict] = useState(null);
 
+  // ----- Scout (research) state -----
+  const [researching, setResearching] = useState(false);
+  const [scout, setScout] = useState(null);  // last research result for context
+
   // ----- Trade history -----
   const [history, setHistory] = useState([]);
 
@@ -149,6 +153,32 @@ export default function CryptoBot({ toast }) {
   const isPaper = mode === "paper";
 
   // ----- Actions -----
+  const runResearch = async () => {
+    setResearching(true);
+    setScout(null);
+    setVerdict(null);
+    try {
+      const a = await tb.accountState().catch(() => acctState);
+      const plan = await tb.research({
+        product_id: selected,
+        side: "BUY",
+        market_type: "crypto",
+        account_balance: a?.account_balance ?? usdBalance ?? undefined,
+      });
+      setScout(plan);
+      // Auto-fill the analyze form so the user can either run analyze
+      // immediately or tweak the levels first.
+      setStop(String(plan.suggested_stop ?? ""));
+      setTarget(String(plan.suggested_target ?? ""));
+      setThesis(plan.thesis ?? "");
+      toast?.(`Scout proposed ${selected} setup — R:R ${plan.rr_ratio?.toFixed(2)}:1, conf ${(plan.confidence * 100).toFixed(0)}%`);
+    } catch (e) {
+      toast?.(`Research failed: ${e.message}`, "error");
+    } finally {
+      setResearching(false);
+    }
+  };
+
   const runAnalyze = async () => {
     if (!thesis.trim()) return toast?.("Thesis required", "error");
     if (!stop || !target) return toast?.("Stop and target required", "error");
@@ -379,8 +409,11 @@ export default function CryptoBot({ toast }) {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
+            <Button onClick={runResearch} disabled={researching || !!healthError} variant="outline" className="text-xs font-bold">
+              {researching ? "RESEARCHING..." : "🔍 RESEARCH (auto-fill)"}
+            </Button>
             <Button onClick={runAnalyze} disabled={analyzing || !!healthError} className="text-xs font-bold">
-              {analyzing ? "ANALYZING..." : "✦ ANALYZE"}
+              {analyzing ? "ANALYZING..." : "✦ ANALYZE (rule check)"}
             </Button>
             {verdict && (
               <Button
@@ -397,6 +430,9 @@ export default function CryptoBot({ toast }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Scout card (research) */}
+      {scout && <Scout scout={scout} />}
 
       {/* Verdict card */}
       {verdict && <Verdict verdict={verdict} />}
@@ -448,6 +484,72 @@ export default function CryptoBot({ toast }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+
+function Scout({ scout }) {
+  return (
+    <Card className="mb-6">
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="text-xs text-muted-foreground tracking-wider uppercase">🔍 Scout proposal</div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs">R:R</span>
+            <span className="text-base font-bold">{scout.rr_ratio ? `${scout.rr_ratio.toFixed(2)}:1` : "—"}</span>
+            <span className="text-xs text-muted-foreground ml-2">conf {(scout.confidence * 100).toFixed(0)}%</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-xs">
+          <div>
+            <div className="text-muted-foreground">Entry</div>
+            <div className="font-bold text-base">{fUSD(scout.suggested_entry)}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Stop</div>
+            <div className="font-bold text-base text-loss">{fUSD(scout.suggested_stop)}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Target</div>
+            <div className="font-bold text-base text-profit">{fUSD(scout.suggested_target)}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Suggested size (1% risk)</div>
+            <div className="font-bold text-base">{scout.suggested_size_usd ? fUSD(scout.suggested_size_usd) : "—"}</div>
+          </div>
+        </div>
+
+        <div className="text-[10px] tracking-wider uppercase text-muted-foreground mb-1">Thesis</div>
+        <p className="text-sm mb-3">{scout.thesis}</p>
+
+        {scout.key_levels && Object.keys(scout.key_levels).length > 0 && (
+          <div className="mb-3">
+            <div className="text-[10px] tracking-wider uppercase text-muted-foreground mb-1">Key levels</div>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(scout.key_levels).map(([k, v]) => (
+                <span key={k} className="text-[11px] bg-accent text-accent-foreground px-2 py-0.5 rounded">
+                  {k}: {fUSD(v)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {scout.warnings && scout.warnings.length > 0 && (
+          <div className="mb-2">
+            <div className="text-[10px] tracking-wider uppercase text-amber mb-1">Caveats</div>
+            <ul className="text-xs text-amber list-disc pl-5 space-y-0.5">
+              {scout.warnings.map((w, i) => <li key={i}>{w}</li>)}
+            </ul>
+          </div>
+        )}
+
+        <p className="text-[11px] text-muted-foreground italic">
+          Stop / target / thesis fields above are pre-filled from this proposal. Tweak them if you disagree, then click <strong>✦ ANALYZE</strong> to run the rule check.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 

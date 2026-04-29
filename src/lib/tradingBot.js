@@ -53,6 +53,9 @@ export const tb = {
   // ----- Claude analysis -----
   analyze:  (payload) => req("/trading/analyze", { method: "POST", body: JSON.stringify(payload) }),
 
+  // ----- Claude scout: proposes entry/stop/target/thesis from candles -----
+  research: (payload) => req("/trading/research", { method: "POST", body: JSON.stringify(payload) }),
+
   // ----- Rules Workshop -----
   listRules:        (marketType = null) =>
                       req(`/trading/rules${marketType ? `?market_type=${marketType}` : ""}`),
