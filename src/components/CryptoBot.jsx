@@ -48,7 +48,8 @@ export default function CryptoBot({ toast }) {
 
   // ----- Scout (research) state -----
   const [researching, setResearching] = useState(false);
-  const [scout, setScout] = useState(null);  // last research result for context
+  const [scout, setScout] = useState(null);          // last research result for context
+  const [scoutId, setScoutId] = useState(null);      // FK passed back to analyze for audit linkage
 
   // ----- Trade history -----
   const [history, setHistory] = useState([]);
@@ -166,8 +167,12 @@ export default function CryptoBot({ toast }) {
         account_balance: a?.account_balance ?? usdBalance ?? undefined,
       });
       setScout(plan);
+      setScoutId(plan.scout_id ?? null);
       // Auto-fill the analyze form so the user can either run analyze
-      // immediately or tweak the levels first.
+      // immediately or tweak the levels first. Manual edits before
+      // ANALYZE preserve the scoutId — that's intentional, since the
+      // edits-then-rejected case is exactly the data we want for rule
+      // refinement (was the rule too strict, or was the user's edit bad?).
       setStop(String(plan.suggested_stop ?? ""));
       setTarget(String(plan.suggested_target ?? ""));
       setThesis(plan.thesis ?? "");
@@ -201,6 +206,7 @@ export default function CryptoBot({ toast }) {
         weekly_pnl: a?.weekly_pnl ?? 0,
         thesis: thesis.trim(),
         side: "BUY",
+        scout_id: scoutId,
       });
       setVerdict(v);
     } catch (e) {
@@ -232,6 +238,8 @@ export default function CryptoBot({ toast }) {
       toast?.(`${res.mode} ${res.side} ${selected} @ ${fUSD(res.fill_price)}`);
       setVerdict(null);
       setThesis(""); setStop(""); setTarget("");
+      setScout(null);
+      setScoutId(null);
       refreshBalances();
       refreshHistory();
       refreshAcctState();
