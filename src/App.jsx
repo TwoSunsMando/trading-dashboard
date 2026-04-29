@@ -33,7 +33,10 @@ export default function App() {
   const toast = (message, type = "success") => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+    // Errors stick around longer — 3s isn't enough to read a JSON parse
+    // error before it disappears (caught this with DOGE analyze on 2026-04-29).
+    const ttl = type === "error" ? 12000 : 3000;
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), ttl);
   };
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
