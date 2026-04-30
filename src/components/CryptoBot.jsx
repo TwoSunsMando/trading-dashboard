@@ -54,6 +54,10 @@ export default function CryptoBot({ toast }) {
   // ----- Trade history -----
   const [history, setHistory] = useState([]);
 
+  // ----- Open positions (per-product PnL) -----
+  const [positions, setPositions] = useState([]);
+  const [positionsTotals, setPositionsTotals] = useState({ unrealized_pnl_usd: 0, current_value_usd: 0 });
+
   // ----- Aggregate account state for analyze (consecutive_losses, weekly_pnl, etc.) -----
   const [acctState, setAcctState] = useState(null);
 
@@ -127,6 +131,22 @@ export default function CryptoBot({ toast }) {
     const id = setInterval(refreshHistory, HISTORY_POLL_MS);
     return () => clearInterval(id);
   }, [refreshHistory]);
+
+  // ----- Open positions polling (uses live prices, so refresh on the same cadence as prices) -----
+  const refreshPositions = useCallback(async () => {
+    if (healthError) return;
+    try {
+      const res = await tb.positions();
+      setPositions(res.positions || []);
+      setPositionsTotals(res.totals || { unrealized_pnl_usd: 0, current_value_usd: 0 });
+    } catch {/* tolerated */}
+  }, [healthError]);
+
+  useEffect(() => {
+    refreshPositions();
+    const id = setInterval(refreshPositions, POLL_MS);
+    return () => clearInterval(id);
+  }, [refreshPositions]);
 
   // ----- Account state polling (used by analyze form) -----
   const refreshAcctState = useCallback(async () => {
@@ -243,6 +263,7 @@ export default function CryptoBot({ toast }) {
       refreshBalances();
       refreshHistory();
       refreshAcctState();
+      refreshPositions();
     } catch (e) {
       toast?.(`Order rejected: ${e.message}`, "error");
     }
@@ -308,6 +329,78 @@ export default function CryptoBot({ toast }) {
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Open Positions */}
+      <Card className="mb-6">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="text-xs text-muted-foreground tracking-wider uppercase">◎ Open Positions</div>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-muted-foreground">Deployed: <span className="text-foreground font-semibold">{fUSD(positionsTotals.current_value_usd)}</span></span>
+              <span className="text-muted-foreground">Unrealized:
+                <span className={cn("font-bold ml-1", positionsTotals.unrealized_pnl_usd > 0 ? "text-profit" : positionsTotals.unrealized_pnl_usd < 0 ? "text-loss" : "text-foreground")}>
+                  {fUSD(positionsTotals.unrealized_pnl_usd)}
+                </span>
+              </span>
+            </div>
+          </div>
+          {positions.length === 0 ? (
+            <div className="text-xs text-muted-foreground">No open positions.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-muted-foreground border-b border-border">
+                    <th className="text-left py-1.5 pr-3">Pair</th>
+                    <th className="text-right py-1.5 pr-3">Quantity</th>
+                    <th className="text-right py-1.5 pr-3">Avg Cost</th>
+                    <th className="text-right py-1.5 pr-3">Current</th>
+                    <th className="text-right py-1.5 pr-3">Cost Basis</th>
+                    <th className="text-right py-1.5 pr-3">Value</th>
+                    <th className="text-right py-1.5 pr-3">Unrealized P&L</th>
+                    <th className="text-right py-1.5 pr-3">%</th>
+                    <th className="text-left py-1.5 pl-2">Opened</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {positions.map((p) => {
+                    const pnl = p.unrealized_pnl_usd;
+                    const pct = p.unrealized_pnl_pct;
+                    const pnlColor = pnl > 0 ? "text-profit" : pnl < 0 ? "text-loss" : "text-foreground";
+                    return (
+                      <tr
+                        key={p.product_id}
+                        onClick={() => setSelected(p.product_id)}
+                        className={cn(
+                          "border-b border-border last:border-0 cursor-pointer transition-colors hover:bg-accent/40",
+                          selected === p.product_id && "bg-primary/5",
+                        )}
+                      >
+                        <td className="py-2 pr-3 font-bold">{p.product_id}</td>
+                        <td className="py-2 pr-3 text-right">{fmt(p.quantity, 8)}</td>
+                        <td className="py-2 pr-3 text-right">{p.avg_cost != null ? fUSD(p.avg_cost) : "—"}</td>
+                        <td className="py-2 pr-3 text-right">{p.current_price != null ? fUSD(p.current_price) : "—"}</td>
+                        <td className="py-2 pr-3 text-right text-muted-foreground">{p.cost_basis_usd != null ? fUSD(p.cost_basis_usd) : "—"}</td>
+                        <td className="py-2 pr-3 text-right">{p.current_value_usd != null ? fUSD(p.current_value_usd) : "—"}</td>
+                        <td className={cn("py-2 pr-3 text-right font-bold", pnlColor)}>{pnl != null ? fUSD(pnl) : "—"}</td>
+                        <td className={cn("py-2 pr-3 text-right", pnlColor)}>{pct != null ? `${pct >= 0 ? "+" : ""}${fmt(pct, 2)}%` : "—"}</td>
+                        <td className="py-2 pl-2 text-muted-foreground">
+                          {p.open_since
+                            ? new Date(p.open_since).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                            : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div className="text-[10px] text-muted-foreground mt-2 italic">
+                Click a row to load that pair into the chart and analyze form.
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

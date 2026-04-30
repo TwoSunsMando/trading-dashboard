@@ -39,6 +39,7 @@ export const tb = {
 
   // ----- Account -----
   balances: () => req("/trading/balances"),
+  positions: () => req("/trading/positions"),
   accountState: () => req("/trading/account-state"),
   history:  (limit = 50, mode = null) =>
               req(`/trading/history?limit=${limit}${mode ? `&mode=${mode}` : ""}`),
