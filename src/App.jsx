@@ -10,6 +10,7 @@ import Watchlist from "./components/Watchlist";
 import Risk from "./components/Risk";
 import Coach from "./components/Coach";
 import CryptoBot from "./components/CryptoBot";
+import StocksBot from "./components/StocksBot";
 import RulesWorkshop from "./components/RulesWorkshop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -201,6 +202,7 @@ export default function App() {
     { id: "risk", label: "Risk Tracker", icon: "△" },
     { id: "coach", label: "AI Coach", icon: "✦" },
     { id: "crypto", label: "Crypto Bot", icon: "₿" },
+    { id: "stocks", label: "Stocks Bot", icon: "📈" },
     { id: "workshop", label: "Rule Workshop", icon: "⚙" },
   ];
 
@@ -257,6 +259,7 @@ export default function App() {
               {tab === "risk" && <Risk {...{ trades, settings, curCap, closed, wkPnL, consLoss }} />}
               {tab === "coach" && <Coach portfolio={coachPortfolio} />}
               {tab === "crypto" && <CryptoBot toast={toast} />}
+              {tab === "stocks" && <StocksBot toast={toast} />}
               {tab === "workshop" && <RulesWorkshop toast={toast} />}
             </>
           );

@@ -57,6 +57,19 @@ export const tb = {
   // ----- Claude scout: proposes entry/stop/target/thesis from candles -----
   research: (payload) => req("/trading/research", { method: "POST", body: JSON.stringify(payload) }),
 
+  // ===== Stocks (IBKR) — same-shaped client surface as crypto =====
+  stockPrice:    (symbol) => req(`/trading/stocks/prices/${encodeURIComponent(symbol)}`),
+  stockPrices:   (symbols) => req(`/trading/stocks/prices?symbols=${symbols.join(",")}`),
+  stockCandles:  (symbol, granularity = "1h") =>
+                   req(`/trading/stocks/candles/${encodeURIComponent(symbol)}?granularity=${granularity}`),
+  stockAccount:  () => req("/trading/stocks/account"),
+  stockPositions: () => req("/trading/stocks/positions"),
+  stockOrders:   () => req("/trading/stocks/orders"),
+  placeStockOrder: (payload) =>
+                   req("/trading/stocks/orders", { method: "POST", body: JSON.stringify(payload) }),
+  stockResearch: (payload) =>
+                   req("/trading/stocks/research", { method: "POST", body: JSON.stringify(payload) }),
+
   // ----- Rules Workshop -----
   listRules:        (marketType = null) =>
                       req(`/trading/rules${marketType ? `?market_type=${marketType}` : ""}`),
@@ -75,3 +88,6 @@ export const tb = {
 
 // Default product universe — matches the build prompt + paper_balances seed.
 export const PRODUCTS = ["BTC-USD", "ETH-USD", "SOL-USD", "AVAX-USD", "LINK-USD", "DOGE-USD"];
+
+// Stock universe — the spec's testing set: 5 tech megacaps + 3 broad ETFs.
+export const STOCK_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "SPY", "QQQ", "IWM"];
