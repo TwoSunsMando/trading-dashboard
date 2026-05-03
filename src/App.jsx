@@ -34,10 +34,13 @@ export default function App() {
   const toast = (message, type = "success") => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
-    // Errors stick around longer — 3s isn't enough to read a JSON parse
-    // error before it disappears (caught this with DOGE analyze on 2026-04-29).
-    const ttl = type === "error" ? 12000 : 3000;
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), ttl);
+    // Errors stick until the user dismisses them (click the toast).
+    // Auto-dismiss is for happy-path noise; errors are diagnostic info
+    // that auto-disappearing has burned us multiple times. Successes
+    // and warnings get the standard 3s.
+    if (type !== "error") {
+      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+    }
   };
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 

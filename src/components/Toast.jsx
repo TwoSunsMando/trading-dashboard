@@ -11,6 +11,9 @@ export function Toast({ toasts, removeToast }) {
           t.type !== "error" && t.type !== "success" && "bg-warn-muted border-warn/40 text-warn",
         )}>
           {t.type === "error" ? "✗ " : t.type === "success" ? "✓ " : "⚠ "}{t.message}
+          {t.type === "error" && (
+            <span className="block text-[10px] mt-1 opacity-70">click to dismiss</span>
+          )}
         </div>
       ))}
     </div>

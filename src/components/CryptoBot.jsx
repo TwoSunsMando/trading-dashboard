@@ -174,6 +174,32 @@ export default function CryptoBot({ toast }) {
   const isPaper = mode === "paper";
 
   // ----- Actions -----
+  // Close (SELL all) of a held crypto position. Bypasses the analyze
+  // flow because exiting an existing position is a defensive action
+  // — the bot's safety middleware exempts closing-sells from
+  // MAX_ORDER_USD so this works on positions of any size.
+  const closePosition = async (position) => {
+    const baseSize = Number(position?.quantity ?? 0);
+    if (!position?.product_id || baseSize <= 0) return;
+    if (!window.confirm(`Sell all ${baseSize} ${position.currency} (${position.product_id}) at market?`)) return;
+    try {
+      const res = await tb.placeOrder({
+        product_id: position.product_id,
+        side: "SELL",
+        order_type: "MARKET",
+        base_size: baseSize,
+      });
+      const pnlNote = res.realized_pnl != null ? ` (realized ${fUSD(res.realized_pnl)})` : "";
+      toast?.(`${res.mode} SELL ${baseSize} ${position.currency} @ ${fUSD(res.fill_price)}${pnlNote}`);
+      refreshBalances();
+      refreshHistory();
+      refreshAcctState();
+      refreshPositions();
+    } catch (e) {
+      toast?.(`Close failed: ${e.message}`, "error");
+    }
+  };
+
   const runResearch = async () => {
     setResearching(true);
     setScout(null);
@@ -361,7 +387,8 @@ export default function CryptoBot({ toast }) {
                     <th className="text-right py-1.5 pr-3">Value</th>
                     <th className="text-right py-1.5 pr-3">Unrealized P&L</th>
                     <th className="text-right py-1.5 pr-3">%</th>
-                    <th className="text-left py-1.5 pl-2">Opened</th>
+                    <th className="text-left py-1.5 pl-2 pr-3">Opened</th>
+                    <th className="text-right py-1.5">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -372,13 +399,12 @@ export default function CryptoBot({ toast }) {
                     return (
                       <tr
                         key={p.product_id}
-                        onClick={() => setSelected(p.product_id)}
                         className={cn(
-                          "border-b border-border last:border-0 cursor-pointer transition-colors hover:bg-accent/40",
+                          "border-b border-border last:border-0 transition-colors hover:bg-accent/40",
                           selected === p.product_id && "bg-primary/5",
                         )}
                       >
-                        <td className="py-2 pr-3 font-bold">{p.product_id}</td>
+                        <td className="py-2 pr-3 font-bold cursor-pointer" onClick={() => setSelected(p.product_id)}>{p.product_id}</td>
                         <td className="py-2 pr-3 text-right">{fmt(p.quantity, 8)}</td>
                         <td className="py-2 pr-3 text-right">{p.avg_cost != null ? fUSD(p.avg_cost) : "—"}</td>
                         <td className="py-2 pr-3 text-right">{p.current_price != null ? fUSD(p.current_price) : "—"}</td>
@@ -386,10 +412,16 @@ export default function CryptoBot({ toast }) {
                         <td className="py-2 pr-3 text-right">{p.current_value_usd != null ? fUSD(p.current_value_usd) : "—"}</td>
                         <td className={cn("py-2 pr-3 text-right font-bold", pnlColor)}>{pnl != null ? fUSD(pnl) : "—"}</td>
                         <td className={cn("py-2 pr-3 text-right", pnlColor)}>{pct != null ? `${pct >= 0 ? "+" : ""}${fmt(pct, 2)}%` : "—"}</td>
-                        <td className="py-2 pl-2 text-muted-foreground">
+                        <td className="py-2 pl-2 pr-3 text-muted-foreground">
                           {p.open_since
                             ? new Date(p.open_since).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
                             : "—"}
+                        </td>
+                        <td className="py-2 text-right">
+                          <Button size="sm" variant="outline" onClick={() => closePosition(p)}
+                            className="h-6 text-[10px] px-2 text-loss hover:text-loss border-loss/40">
+                            × CLOSE
+                          </Button>
                         </td>
                       </tr>
                     );

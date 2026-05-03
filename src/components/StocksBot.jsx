@@ -211,6 +211,31 @@ export default function StocksBot({ toast }) {
     }
   };
 
+  // Close (SELL all shares) of a held position. Bypasses the analyze
+  // flow because it's a defensive action — exiting an existing
+  // position. The bot's safety middleware exempts closing-sells from
+  // MAX_ORDER_USD so this works even on positions larger than the cap.
+  const closePosition = async (position) => {
+    if (!position?.symbol || !position?.quantity || position.quantity <= 0) return;
+    if (!window.confirm(`Sell all ${position.quantity} shares of ${position.symbol} at market?`)) return;
+    try {
+      const res = await tb.placeStockOrder({
+        symbol: position.symbol,
+        side: "SELL",
+        order_type: "MARKET",
+        quantity: position.quantity,
+      });
+      const pnlNote = res.realized_pnl != null ? ` (realized ${fUSD(res.realized_pnl)})` : "";
+      toast?.(`${res.mode} SELL ${position.quantity} ${position.symbol} @ ${fUSD(res.fill_price)}${pnlNote}`);
+      refreshAccount();
+      refreshPositions();
+      refreshHistory();
+      refreshAcctState();
+    } catch (e) {
+      toast?.(`Close failed: ${e.message}`, "error");
+    }
+  };
+
   const placeOrderFromVerdict = async () => {
     if (!verdict) return;
     if (verdict.decision !== "BUY" && verdict.decision !== "SELL") {
@@ -308,7 +333,12 @@ export default function StocksBot({ toast }) {
         </div>
       </div>
       <p className="text-muted-foreground text-xs mb-6">
-        IBKR + Claude trading brain. {isPaper ? "Paper mode — bot's own ledger, no real shares." : "LIVE — real funds at risk."}
+        IBKR + Claude trading brain.{" "}
+        {mode === "paper"
+          ? "Paper mode — bot's own ledger, no real shares."
+          : mode === "live"
+          ? "LIVE — real funds at risk."
+          : "Loading mode…"}
       </p>
 
       {headerError}
@@ -342,7 +372,8 @@ export default function StocksBot({ toast }) {
                     <th className="text-right py-1.5 pr-3">Value</th>
                     <th className="text-right py-1.5 pr-3">Unrealized P&L</th>
                     <th className="text-right py-1.5 pr-3">%</th>
-                    <th className="text-left py-1.5 pl-2">Opened</th>
+                    <th className="text-left py-1.5 pl-2 pr-3">Opened</th>
+                    <th className="text-right py-1.5">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -351,12 +382,12 @@ export default function StocksBot({ toast }) {
                     const pct = p.unrealized_pnl_pct;
                     const pnlColor = pnl > 0 ? "text-profit" : pnl < 0 ? "text-loss" : "text-foreground";
                     return (
-                      <tr key={p.symbol} onClick={() => setSelected(p.symbol)}
+                      <tr key={p.symbol}
                           className={cn(
-                            "border-b border-border last:border-0 cursor-pointer transition-colors hover:bg-accent/40",
+                            "border-b border-border last:border-0 transition-colors hover:bg-accent/40",
                             selected === p.symbol && "bg-primary/5",
                           )}>
-                        <td className="py-2 pr-3 font-bold">{p.symbol}</td>
+                        <td className="py-2 pr-3 font-bold cursor-pointer" onClick={() => setSelected(p.symbol)}>{p.symbol}</td>
                         <td className="py-2 pr-3 text-right">{fmt(p.quantity, 4)}</td>
                         <td className="py-2 pr-3 text-right">{p.avg_cost != null ? fUSD(p.avg_cost) : "—"}</td>
                         <td className="py-2 pr-3 text-right">{p.current_price != null ? fUSD(p.current_price) : "—"}</td>
@@ -364,10 +395,16 @@ export default function StocksBot({ toast }) {
                         <td className="py-2 pr-3 text-right">{p.current_value_usd != null ? fUSD(p.current_value_usd) : "—"}</td>
                         <td className={cn("py-2 pr-3 text-right font-bold", pnlColor)}>{pnl != null ? fUSD(pnl) : "—"}</td>
                         <td className={cn("py-2 pr-3 text-right", pnlColor)}>{pct != null ? `${pct >= 0 ? "+" : ""}${fmt(pct, 2)}%` : "—"}</td>
-                        <td className="py-2 pl-2 text-muted-foreground">
+                        <td className="py-2 pl-2 pr-3 text-muted-foreground">
                           {p.open_since
                             ? new Date(p.open_since).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
                             : "—"}
+                        </td>
+                        <td className="py-2 text-right">
+                          <Button size="sm" variant="outline" onClick={() => closePosition(p)}
+                            className="h-6 text-[10px] px-2 text-loss hover:text-loss border-loss/40">
+                            × CLOSE
+                          </Button>
                         </td>
                       </tr>
                     );
