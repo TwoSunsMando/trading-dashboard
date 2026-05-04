@@ -21,7 +21,7 @@ const POLL_MS = 10_000;
 const HISTORY_POLL_MS = 30_000;
 
 
-export default function CryptoBot({ toast }) {
+export default function CryptoBot({ toast, pendingSymbol, clearPendingSymbol }) {
   // ----- Mode + health -----
   const [mode, setMode] = useState(null);
   const [health, setHealth] = useState(null);
@@ -35,7 +35,19 @@ export default function CryptoBot({ toast }) {
   const [balances, setBalances] = useState([]);
 
   // ----- Selected product / chart -----
-  const [selected, setSelected] = useState("BTC-USD");
+  const [selected, setSelected] = useState(pendingSymbol || "BTC-USD");
+
+  // Cross-tab handoff from Hunter: when the user clicks RESEARCH on a
+  // Hunter card, App.jsx switches to this tab AND sets pendingSymbol.
+  // We adopt it on mount/change, then clear it so the next manual
+  // selection isn't reverted next render.
+  useEffect(() => {
+    if (pendingSymbol && pendingSymbol !== selected) {
+      setSelected(pendingSymbol);
+      clearPendingSymbol?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSymbol]);
   const [granularity, setGranularity] = useState("1h");
   const [candles, setCandles] = useState([]);
 

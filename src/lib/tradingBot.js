@@ -57,6 +57,11 @@ export const tb = {
   // ----- Claude scout: proposes entry/stop/target/thesis from candles -----
   research: (payload) => req("/trading/research", { method: "POST", body: JSON.stringify(payload) }),
 
+  // ----- Watchlist Hunter: top-of-funnel ranked picks -----
+  hunt:        (payload) => req("/trading/hunt", { method: "POST", body: JSON.stringify(payload) }),
+  watchlist:   () => req("/trading/watchlist"),
+  huntHistory: (limit = 20) => req(`/trading/hunt/history?limit=${limit}`),
+
   // ===== Stocks (IBKR) — same-shaped client surface as crypto =====
   stockPrice:    (symbol) => req(`/trading/stocks/prices/${encodeURIComponent(symbol)}`),
   stockPrices:   (symbols) => req(`/trading/stocks/prices?symbols=${symbols.join(",")}`),

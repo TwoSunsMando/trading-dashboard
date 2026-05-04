@@ -17,7 +17,7 @@ const POLL_MS = 15_000;
 const HISTORY_POLL_MS = 30_000;
 
 
-export default function StocksBot({ toast }) {
+export default function StocksBot({ toast, pendingSymbol, clearPendingSymbol }) {
   // ----- Mode + IB connection state -----
   const [mode, setMode] = useState(null);
   const [health, setHealth] = useState(null);
@@ -33,7 +33,17 @@ export default function StocksBot({ toast }) {
   const [positionsTotals, setPositionsTotals] = useState({ unrealized_pnl_usd: 0, current_value_usd: 0 });
 
   // ----- Selected symbol / chart -----
-  const [selected, setSelected] = useState("AAPL");
+  const [selected, setSelected] = useState(pendingSymbol || "AAPL");
+
+  // Cross-tab handoff from Hunter: when the user clicks RESEARCH on a
+  // Hunter card, App.jsx switches to this tab AND sets pendingSymbol.
+  useEffect(() => {
+    if (pendingSymbol && pendingSymbol !== selected) {
+      setSelected(pendingSymbol);
+      clearPendingSymbol?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSymbol]);
   const [granularity, setGranularity] = useState("1h");
   const [candles, setCandles] = useState([]);
 

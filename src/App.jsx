@@ -10,6 +10,7 @@ import Watchlist from "./components/Watchlist";
 import Risk from "./components/Risk";
 import Coach from "./components/Coach";
 import CryptoBot from "./components/CryptoBot";
+import Hunter from "./components/Hunter";
 import StocksBot from "./components/StocksBot";
 import RulesWorkshop from "./components/RulesWorkshop";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,10 @@ export default function App() {
   const [authErr, setAuthErr] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [tab, setTab] = useState("dashboard");
+  // Cross-tab navigation: when the Hunter "RESEARCH →" button fires it
+  // sets these so Crypto Bot / Stocks Bot opens with the right symbol
+  // selected. The bot tabs read this on mount and clear it after use.
+  const [pendingSymbol, setPendingSymbol] = useState(null);
   const [trades, setTrades] = useState([]);
   const [watchlist, setWL] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -207,6 +212,7 @@ export default function App() {
     { id: "crypto", label: "Crypto Bot", icon: "₿" },
     { id: "stocks", label: "Stocks Bot", icon: "📈" },
     { id: "workshop", label: "Rule Workshop", icon: "⚙" },
+    { id: "hunter", label: "Hunter", icon: "🎯" },
   ];
 
   return (
@@ -262,7 +268,7 @@ export default function App() {
               {tab === "risk" && <Risk {...{ trades, settings, curCap, closed, wkPnL, consLoss }} />}
               {tab === "coach" && <Coach portfolio={coachPortfolio} />}
               {tab === "crypto" && <CryptoBot toast={toast} />}
-              {tab === "stocks" && <StocksBot toast={toast} />}
+              {tab === "stocks" && <StocksBot toast={toast} pendingSymbol={pendingSymbol?.assetClass === "stock" ? pendingSymbol.symbol : null} clearPendingSymbol={() => setPendingSymbol(null)} />}
               {tab === "workshop" && <RulesWorkshop toast={toast} />}
             </>
           );
