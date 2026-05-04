@@ -267,9 +267,13 @@ export default function App() {
               {tab === "watchlist" && <Watchlist {...{ watchlist, addWLItem, updateWLItem, deleteWLItem }} />}
               {tab === "risk" && <Risk {...{ trades, settings, curCap, closed, wkPnL, consLoss }} />}
               {tab === "coach" && <Coach portfolio={coachPortfolio} />}
-              {tab === "crypto" && <CryptoBot toast={toast} />}
+              {tab === "crypto" && <CryptoBot toast={toast} pendingSymbol={pendingSymbol?.assetClass === "crypto" ? pendingSymbol.symbol : null} clearPendingSymbol={() => setPendingSymbol(null)} />}
               {tab === "stocks" && <StocksBot toast={toast} pendingSymbol={pendingSymbol?.assetClass === "stock" ? pendingSymbol.symbol : null} clearPendingSymbol={() => setPendingSymbol(null)} />}
               {tab === "workshop" && <RulesWorkshop toast={toast} />}
+              {tab === "hunter" && <Hunter toast={toast} navigateToBot={(assetClass, symbol) => {
+                setPendingSymbol({ assetClass, symbol });
+                setTab(assetClass === "crypto" ? "crypto" : "stocks");
+              }} />}
             </>
           );
         })()}
