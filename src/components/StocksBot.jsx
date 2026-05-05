@@ -79,7 +79,13 @@ export default function StocksBot({ toast, pendingSymbol, clearPendingSymbol }) 
   const refreshPrices = useCallback(async () => {
     if (ibkrDisabled || healthError) return;
     try {
-      const res = await tb.stockPrices(STOCK_SYMBOLS);
+      // Always include the currently-selected symbol — Hunter can route
+      // a click here for any of its 50 universe stocks, and the
+      // selected one might not be in the grid's STOCK_SYMBOLS list.
+      // Without this, current_price stays null and Analyze fails the
+      // Pydantic gt=0 check on the backend.
+      const symbolsToFetch = Array.from(new Set([...STOCK_SYMBOLS, selected].filter(Boolean)));
+      const res = await tb.stockPrices(symbolsToFetch);
       const map = {};
       for (const p of res.prices) map[p.symbol] = p;
       setPrices(map);
@@ -87,7 +93,7 @@ export default function StocksBot({ toast, pendingSymbol, clearPendingSymbol }) 
     } catch (e) {
       setPricesError(e.message);
     }
-  }, [ibkrDisabled, healthError]);
+  }, [ibkrDisabled, healthError, selected]);
 
   useEffect(() => {
     refreshPrices();
@@ -194,6 +200,12 @@ export default function StocksBot({ toast, pendingSymbol, clearPendingSymbol }) 
   const runAnalyze = async () => {
     if (!thesis.trim()) return toast?.("Thesis required", "error");
     if (!stop || !target) return toast?.("Stop and target required", "error");
+    if (!selectedPrice) {
+      return toast?.(
+        `No live price for ${selected} yet — wait a few seconds for the polling cycle, or pick a different symbol`,
+        "error",
+      );
+    }
     setAnalyzing(true);
     setVerdict(null);
     try {

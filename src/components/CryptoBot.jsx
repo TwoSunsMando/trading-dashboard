@@ -86,7 +86,12 @@ export default function CryptoBot({ toast, pendingSymbol, clearPendingSymbol }) 
   // ----- Price polling -----
   const refreshPrices = useCallback(async () => {
     try {
-      const res = await tb.prices(PRODUCTS);
+      // Include the currently-selected pair even if it's not in the grid —
+      // Hunter can route here with any pair from its 20-coin universe,
+      // and missing the selected price makes Analyze fail Pydantic
+      // validation on current_price.
+      const productsToFetch = Array.from(new Set([...PRODUCTS, selected].filter(Boolean)));
+      const res = await tb.prices(productsToFetch);
       const map = {};
       for (const p of res.prices) map[p.product_id] = p;
       setPrices(map);
@@ -94,7 +99,7 @@ export default function CryptoBot({ toast, pendingSymbol, clearPendingSymbol }) 
     } catch (e) {
       setPricesError(e.message);
     }
-  }, []);
+  }, [selected]);
 
   useEffect(() => {
     refreshPrices();
@@ -245,6 +250,12 @@ export default function CryptoBot({ toast, pendingSymbol, clearPendingSymbol }) 
   const runAnalyze = async () => {
     if (!thesis.trim()) return toast?.("Thesis required", "error");
     if (!stop || !target) return toast?.("Stop and target required", "error");
+    if (!selectedPrice) {
+      return toast?.(
+        `No live price for ${selected} yet — wait a few seconds for the polling cycle, or pick a different pair`,
+        "error",
+      );
+    }
     setAnalyzing(true);
     setVerdict(null);
     try {
