@@ -551,10 +551,17 @@ export default function StocksBot({ toast, pendingSymbol, clearPendingSymbol }) 
             </div>
             <div>
               <div className="text-[10px] text-muted-foreground mb-1">R:R</div>
-              <div className="text-base font-bold h-9 flex items-center">
-                {selectedPrice && stop && target && Number(selectedPrice) > Number(stop)
-                  ? `${fmt((Number(target) - Number(selectedPrice)) / (Number(selectedPrice) - Number(stop)), 2)}:1`
-                  : "—"}
+              <div className="text-base font-bold h-9 flex items-center gap-2">
+                {(() => {
+                  if (!selectedPrice || !stop || !target || Number(selectedPrice) <= Number(stop)) return "—";
+                  const rr = (Number(target) - Number(selectedPrice)) / (Number(selectedPrice) - Number(stop));
+                  return (
+                    <>
+                      <span className={cn(rr < 2 ? "text-loss" : "text-profit")}>{fmt(rr, 2)}:1</span>
+                      {rr < 2 && <span className="text-[10px] text-loss font-normal">↓ E3 min</span>}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -574,11 +581,16 @@ export default function StocksBot({ toast, pendingSymbol, clearPendingSymbol }) 
             </Button>
             {verdict && (
               <Button onClick={placeOrderFromVerdict}
-                disabled={verdict.decision !== "BUY" && verdict.decision !== "SELL"}
+                disabled={
+                  (verdict.decision !== "BUY" && verdict.decision !== "SELL") ||
+                  !verdict.suggested_size_usd ||
+                  Number(verdict.suggested_size_usd) <= 0
+                }
                 variant="default" className="text-xs font-bold">
-                {verdict.decision === "BUY" || verdict.decision === "SELL"
-                  ? `✓ EXECUTE ${verdict.decision} (${fUSD(verdict.suggested_size_usd || 0)})`
-                  : `BLOCKED — ${verdict.decision}`}
+                {(verdict.decision === "BUY" || verdict.decision === "SELL") &&
+                 verdict.suggested_size_usd && Number(verdict.suggested_size_usd) > 0
+                  ? `✓ EXECUTE ${verdict.decision} (${fUSD(verdict.suggested_size_usd)})`
+                  : `BLOCKED — see verdict`}
               </Button>
             )}
           </div>
