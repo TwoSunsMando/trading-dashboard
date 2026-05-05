@@ -279,10 +279,16 @@ export default function CryptoBot({ toast, pendingSymbol, clearPendingSymbol }) 
     if (verdict.decision !== "BUY" && verdict.decision !== "SELL") {
       return toast?.(`Cannot trade — Claude verdict was ${verdict.decision}`, "error");
     }
-    const sizeUsd = Number(verdict.suggested_size_usd ?? 0);
-    if (!sizeUsd || sizeUsd <= 0) {
+    const rawSize = Number(verdict.suggested_size_usd ?? 0);
+    if (!rawSize || rawSize <= 0) {
       return toast?.("No size suggested in verdict", "error");
     }
+    // Pre-cap to MAX_ORDER_USD so we never submit an order the bot's
+    // safety middleware will refuse. -$1 buffer absorbs fractional
+    // rounding when the bot back-computes USD value at fill time.
+    const maxOrder = health?.limits?.max_order_usd ? Number(health.limits.max_order_usd) - 1 : rawSize;
+    const sizeUsd = Math.min(rawSize, maxOrder);
+    const wasCapped = sizeUsd < rawSize;
     try {
       const res = await tb.placeOrder({
         product_id: selected,
@@ -293,7 +299,8 @@ export default function CryptoBot({ toast, pendingSymbol, clearPendingSymbol }) 
         // can't safely place a sell, so we refuse rather than guessing.
         base_size: verdict.decision === "SELL" ? Number(verdict.suggested_size_crypto) : undefined,
       });
-      toast?.(`${res.mode} ${res.side} ${selected} @ ${fUSD(res.fill_price)}`);
+      const capNote = wasCapped ? ` (capped from ${fUSD(rawSize)} to fit MAX_ORDER_USD)` : "";
+      toast?.(`${res.mode} ${res.side} ${selected} @ ${fUSD(res.fill_price)}${capNote}`);
       setVerdict(null);
       setThesis(""); setStop(""); setTarget("");
       setScout(null);
@@ -578,10 +585,17 @@ export default function CryptoBot({ toast, pendingSymbol, clearPendingSymbol }) 
                 variant="default"
                 className="text-xs font-bold"
               >
-                {(verdict.decision === "BUY" || verdict.decision === "SELL") &&
-                 verdict.suggested_size_usd && Number(verdict.suggested_size_usd) > 0
-                  ? `✓ EXECUTE ${verdict.decision} (${fUSD(verdict.suggested_size_usd)})`
-                  : `BLOCKED — see verdict`}
+                {(() => {
+                  const isTradeable = (verdict.decision === "BUY" || verdict.decision === "SELL") &&
+                    verdict.suggested_size_usd && Number(verdict.suggested_size_usd) > 0;
+                  if (!isTradeable) return "BLOCKED — see verdict";
+                  const raw = Number(verdict.suggested_size_usd);
+                  const cap = health?.limits?.max_order_usd ? Number(health.limits.max_order_usd) - 1 : raw;
+                  const eff = Math.min(raw, cap);
+                  return raw > cap
+                    ? `✓ EXECUTE ${verdict.decision} (${fUSD(eff)} · capped)`
+                    : `✓ EXECUTE ${verdict.decision} (${fUSD(eff)})`;
+                })()}
               </Button>
             )}
           </div>

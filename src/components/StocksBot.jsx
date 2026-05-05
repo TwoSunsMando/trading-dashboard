@@ -251,13 +251,22 @@ export default function StocksBot({ toast, pendingSymbol, clearPendingSymbol }) 
     if (verdict.decision !== "BUY" && verdict.decision !== "SELL") {
       return toast?.(`Cannot trade — Claude verdict was ${verdict.decision}`, "error");
     }
-    const sizeUsd = Number(verdict.suggested_size_usd ?? 0);
-    if (!sizeUsd || sizeUsd <= 0) {
+    const rawSize = Number(verdict.suggested_size_usd ?? 0);
+    if (!rawSize || rawSize <= 0) {
       return toast?.("No size suggested in verdict", "error");
     }
     if (!selectedPrice) {
       return toast?.("No live price for this symbol — cannot size", "error");
     }
+    // Pre-cap to MAX_ORDER_USD so we never submit an order the bot's
+    // safety middleware will refuse. The cap is the hard ceiling
+    // regardless of what Claude suggested — Claude knows R1/R3, but
+    // not the absolute USD env-var cap. Floored slightly below the
+    // limit (-$1) to absorb any fractional rounding when shares × price
+    // gets back-computed in the bot.
+    const maxOrder = health?.limits?.max_order_usd ? Number(health.limits.max_order_usd) - 1 : rawSize;
+    const sizeUsd = Math.min(rawSize, maxOrder);
+    const wasCapped = sizeUsd < rawSize;
     // Convert USD-sized recommendation into share count for an IB order.
     // Floor to whole shares (most stocks don't accept fractional via IB
     // unless explicitly enabled).
@@ -275,7 +284,8 @@ export default function StocksBot({ toast, pendingSymbol, clearPendingSymbol }) 
         order_type: "MARKET",
         quantity: shares,
       });
-      toast?.(`${res.mode} ${res.side} ${shares} ${selected} @ ${fUSD(res.fill_price)}`);
+      const capNote = wasCapped ? ` (capped from ${fUSD(rawSize)} to fit MAX_ORDER_USD)` : "";
+      toast?.(`${res.mode} ${res.side} ${shares} ${selected} @ ${fUSD(res.fill_price)}${capNote}`);
       setVerdict(null);
       setScout(null);
       setScoutId(null);
@@ -587,10 +597,17 @@ export default function StocksBot({ toast, pendingSymbol, clearPendingSymbol }) 
                   Number(verdict.suggested_size_usd) <= 0
                 }
                 variant="default" className="text-xs font-bold">
-                {(verdict.decision === "BUY" || verdict.decision === "SELL") &&
-                 verdict.suggested_size_usd && Number(verdict.suggested_size_usd) > 0
-                  ? `✓ EXECUTE ${verdict.decision} (${fUSD(verdict.suggested_size_usd)})`
-                  : `BLOCKED — see verdict`}
+                {(() => {
+                  const isTradeable = (verdict.decision === "BUY" || verdict.decision === "SELL") &&
+                    verdict.suggested_size_usd && Number(verdict.suggested_size_usd) > 0;
+                  if (!isTradeable) return "BLOCKED — see verdict";
+                  const raw = Number(verdict.suggested_size_usd);
+                  const cap = health?.limits?.max_order_usd ? Number(health.limits.max_order_usd) - 1 : raw;
+                  const eff = Math.min(raw, cap);
+                  return raw > cap
+                    ? `✓ EXECUTE ${verdict.decision} (${fUSD(eff)} · capped)`
+                    : `✓ EXECUTE ${verdict.decision} (${fUSD(eff)})`;
+                })()}
               </Button>
             )}
           </div>
